@@ -1,0 +1,50 @@
+/* DispatcherLogin.css */
+.dispatcher-login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 300px;
+  margin: 80px auto;
+  padding: 30px;
+  border: 1px solid #ccc;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: white;
+}
+
+.dispatcher-login h2 {
+  margin-bottom: 20px;
+}
+
+.dispatcher-login input {
+  padding: 10px;
+  margin: 10px 0;
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+}
+
+.dispatcher-login button {
+  margin-top: 15px;
+  padding: 10px;
+  width: 100%;
+  background-color: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.2s ease;
+}
+
+.dispatcher-login button:hover {
+  background-color: #1258a3;
+}
+
+.dispatcher-login .error {
+  color: red;
+  margin-top: 10px;
+  font-size: 14px;
+}
