@@ -113,8 +113,7 @@ const Queue = () => {
   const handleSubmit = async () => {
     if (!selectedSlot || !selectedWindow) return;
 
-    const appointment_time_req = moment(selectedSlot)
-      .tz('Europe/Kyiv')
+    const appointment_time_req = moment.tz(selectedSlot, 'Europe/Kyiv')
       .format('YYYY-MM-DD HH:mm:ss');
 
     const res = await fetch(`${API_URL}/queue`, {
