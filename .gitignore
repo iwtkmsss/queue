@@ -13,6 +13,16 @@ pnpm-debug.log*
 dist/
 build/
 
+# === DATABASE FILES ===
+*.sqlite
+*.sqlite3
+*.db
+*.db3
+*.sqlite-wal
+*.sqlite-shm
+*.db-wal
+*.db-shm
+
 # ========================
 # Vite / React cache
 # ========================
