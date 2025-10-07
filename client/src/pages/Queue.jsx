@@ -4,6 +4,7 @@ import moment from 'moment-timezone';
 import { WebSocketContext } from '../context/WebSocketProvider';
 
 const API_URL = import.meta.env.VITE_API_URL;
+const PRINTER_URL = import.meta.env.VITE_PRINTER_URL;
 
 const getCurrentWeekdays = () => {
   const today = new Date();
@@ -112,33 +113,53 @@ const Queue = () => {
   const handleSubmit = async () => {
     if (!selectedSlot || !selectedWindow) return;
 
-    const appointment_time = moment(selectedSlot).tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
+    const appointment_time_req = moment(selectedSlot)
+      .tz('Europe/Kyiv')
+      .format('YYYY-MM-DD HH:mm:ss');
 
     const res = await fetch(`${API_URL}/queue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question_id: selectedQuestionId,
-        appointment_time,
+        appointment_time: appointment_time_req,
         window_id: selectedWindow
       })
     });
 
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      console.error('Помилка створення талона:', res.status, text);
+      return;
+    }
+
     const result = await res.json();
     setConfirmation(result);
 
+    const appointment = moment.tz(result.appointment_time, 'Europe/Kyiv');
+    const payload = {
+      number: result.id,
+      recordDate: appointment.format('YYYY-MM-DD'),
+      recordTime: appointment.format('HH:mm')
+    };
+
     try {
-      await fetch('http://localhost:5001/print-ticket', {
+      if (!PRINTER_URL) {
+        console.error('VITE_PRINTER_URL не задано — друк пропущено');
+        return;
+      }
+      const pr = await fetch(`${PRINTER_URL}/print-ticket`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          number: result.id,
-          recordDate: appointment_time.slice(0, 10),
-          recordTime: appointment_time.slice(11, 16)
-        })
+        body: JSON.stringify(payload)
       });
-      } catch (err) {
-        console.error('Помилка виклику друку:', err);
+
+      if (!pr.ok) {
+        const text = await pr.text().catch(() => '');
+        console.error('Помилка виклику друку:', pr.status, text, 'payload=', payload);
+      }
+    } catch (err) {
+      console.error('Помилка мережі при друку:', err, 'payload=', payload);
     }
   };
 
