@@ -1,318 +1,718 @@
+/* ========== БАЗОВИЙ ЛЕЙАУТ МЕНЕДЖЕРА ========== */
+
 .manager-container {
-    padding: 32px;
-    font-family: sans-serif;
+  min-height: 100vh;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: radial-gradient(circle at top, #e0f2fe 0, #f9fafb 45%, #f3f4f6 100%);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .manager-container {
+    padding: 32px 24px 40px;
   }
-  
-  .ticket-list {
-    padding: 0;
-    margin: 0;
-    max-height: 75vh;
-    overflow-y: auto;
-    padding-right: 6px;
-  }
-  
-  .ticket {
-    background: #f5f5f5;
-    padding: 12px 16px;
-    margin-bottom: 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: background 0.2s ease;
-  }
-  
-  .ticket:hover {
-    background: #e0e0e0;
-  }
-  
-  .ticket .status {
-    font-weight: bold;
-    text-transform: uppercase;
-    font-size: 12px;
-    color: #555;
-  }
-  
-  .ticket.waiting { border-left: 6px solid #1976d2; }
-  .ticket.in_progress { border-left: 6px solid #ffa000; }
-  .ticket.done { border-left: 6px solid #43a047; }
-  
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0,0,0,0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-  }
-  
-  .modal-window {
-    background: white;
-    padding: 24px;
-    border-radius: 12px;
-    min-width: 300px;
-    max-width: 90%;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    z-index: 10000;
-  }
-  
-  .modal-actions {
-    display: flex;
-    gap: 12px;
-    margin-top: 16px;
-  }
-  
-.modal-actions button {
-  flex: 1;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 6px;
+}
+
+.manager-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(209, 213, 219, 0.7);
+}
+
+
+.manager-title-block h2 {
+  margin: 0;
+  font-size: 20px;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  color: white;
+  color: #111827;
+}
+.manager-subtitle {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #6b7280;
 }
 
-.modal-actions button.start {
-  background: #43a047;
-}
-.modal-actions button.start:hover {
-  background: #388e3c;
+.manager-subtitle span {
+  font-weight: 600;
+  color: #111827;
 }
 
-.modal-actions button.finish {
-  background: #0288d1;
-}
-.modal-actions button.finish:hover {
-  background: #0277bd;
-}
+/* Вихід */
 
-.modal-actions button.skip {
-  background: #f57c00;
-}
-.modal-actions button.skip:hover {
-  background: #ef6c00;
-}
-
-.modal-actions button.close {
-  background: #e0e0e0;
-  color: #333;
-}
-.modal-actions button.close:hover {
-  background: #bdbdbd;
-}
-  
-  .modal-actions button:hover {
-    background: #125aa2;
-  }
-  
-  .manager-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-  }
-  
 .logout-btn {
-  margin: 10px;
-  padding: 8px 16px;
-  background: #eeeeee;
-  color: #444;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  cursor: pointer;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 14px;
   font-weight: 500;
-  transition: background 0.2s ease;
+  cursor: pointer;
+  background: #fee2e2;
+  color: #b91c1c;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
 }
 
 .logout-btn:hover {
-  background: #d6d6d6;
+  background: #fecaca;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(248, 113, 113, 0.35);
 }
 
-  
-  .login-container {
-    max-width: 300px;
-    margin: 100px auto;
-    padding: 24px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .login-container input {
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-  }
-  
-  .login-container button {
-    padding: 8px;
-    background: #1976d2;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-  }
-  
-  .ticket.skipped {
-    background: #ddd !important;
-    color: #888;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
-  
-  .current-client {
-    background: #fff3cd;
-    border: 1px solid #ffeeba;
-    padding: 16px;
-    border-radius: 8px;
-    margin-bottom: 24px;
-  }
-  
-  .client-info {
-    font-size: 18px;
-    margin-top: 8px;
-  }
-  
-  /* загальний контейнер */
-.manager-container {
-  padding: 32px;
-  max-width: 800px;
-  margin: 0 auto;
-  font-family: 'Segoe UI', sans-serif;
-}
+/* Банер попередження */
 
-/* заголовок + кнопка виходу */
-.manager-header {
-  display: flex;
-  justify-content: space-between;
+.warning-banner {
+  padding: 10px 14px;
+  border-radius: 9999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 13px;
+  display: inline-flex;
   align-items: center;
-  margin-bottom: 24px;
+  gap: 8px;
+  align-self: flex-start;
+  box-shadow: 0 6px 16px rgba(251, 191, 36, 0.25);
 }
 
-/* список талонів */
+.current-client-card {
+  margin-top: 4px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #eff6ff 0%, #eef2ff 40%, #ffffff 100%);
+  box-shadow: 0 12px 28px rgba(79, 70, 229, 0.2);
+  border: 1px solid rgba(191, 219, 254, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cc-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #4b5563;
+  opacity: 0.9;
+}
+
+.cc-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cc-time {
+  min-width: 64px;
+  padding: 8px 10px;
+  border-radius: 9999px;
+  background: #1d4ed8;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.5);
+}
+
+.cc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cc-question {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+}
+
+.cc-meta {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+
+/* ========== СПИСОК ТАЛОНІВ ========== */
+
 .ticket-list {
-  max-height: 60vh;
-  overflow-y: auto;
   list-style: none;
+  margin: 12px 0 0;
   padding: 0;
-  margin: 0;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  max-height: calc(100vh - 210px);
+  overflow-y: auto;
+  padding-right: 4px;
+  box-sizing: border-box;
 }
 
 .ticket {
-  padding: 14px 18px;
-  border-bottom: 1px solid #eee;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: background 0.2s ease;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e7eb;
   cursor: pointer;
-  background: #fafafa;
+  background: #ffffff;
+  transition: background 0.12s ease, transform 0.08s ease, box-shadow 0.12s ease;
+}
+
+.ticket:last-child {
+  border-bottom: none;
 }
 
 .ticket:hover {
-  background: #f0f0f0;
+  background: #f9fafb;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(148, 163, 184, 0.35);
+}
+
+.ticket strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  min-width: 52px;
+  text-align: right;
+}
+
+
+.ticket span {
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.ticket span:nth-of-type(1) {
+  flex: 1;
 }
 
 .ticket .status {
-  font-size: 12px;
-  font-weight: bold;
+  font-size: 11px;
+  font-weight: 600;
   text-transform: uppercase;
-  color: #666;
+  color: #6b7280;
+  white-space: nowrap;
 }
 
-.ticket.waiting { border-left: 4px solid #1976d2; }
-.ticket.in_progress { border-left: 4px solid #ffa000; }
-.ticket.completed {
-  background: #f4f4f4;
-  color: #666;
-  border-left: 4px solid #43a047;
+/* Порожня */
+
+.ticket.empty {
+  justify-content: center;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: default;
+  padding: 16px 14px;
 }
+
+
+/* Статуси */
+
+.ticket.waiting {
+  border-left: 4px solid #2563eb;
+}
+
+.ticket.in_progress {
+  border-left: 4px solid #f97316;
+}
+
+.ticket.completed {
+  border-left: 4px solid #10b981;
+}
+
 .ticket.missed,
 .ticket.did_not_appear {
-  border-left: 4px solid #999;
-  background: #f4f4f4;
-  color: #aaa;
-  pointer-events: none;
-  cursor: not-allowed;
+  border-left: 4px solid #ef4444;
 }
 
-/* модалка */
+/* ========== МОДАЛЬНЕ ВІКНО ========== */
+
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
+  inset: 0;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.50);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+
+  backdrop-filter: blur(3px);
 }
 
+/* Карточка модалки */
 .modal-window {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-  min-width: 320px;
-  max-width: 90%;
+  width: 100%;
+  max-width: 760px;
+  max-height: 90vh;
+
+  background: #ffffff;
+  padding: 0; /* Весь падінг у внутрішніх блоках */
+
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.30);
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-window h3 {
-  margin-top: 0;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.modal-actions button {
-  flex: 1;
-  padding: 10px 16px;
-  background: #1976d2;
-  color: white;
-  border: none;
-  border-radius: 6px;
+  margin: 0 0 4px;
+  font-size: 20px;
   font-weight: 600;
+  color: #111827;
+}
+
+.modal-window p {
+  margin: 2px 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+/* Контент модалки скролиться ОДИН раз */
+
+.modal-body {
+  margin-top: 12px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Низ модалки з кнопками */
+
+.modal-footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Плашка "Збереження..." */
+
+.saving-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* ========== ФОРМА (meta-form) ========== */
+
+.meta-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@media (min-width: 768px) {
+  .meta-form {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr);
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.field input,
+.field textarea {
+  font-size: 14px;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  outline: none;
+  background: #ffffff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  box-sizing: border-box;
+}
+
+.field textarea {
+  border-radius: 12px;
+  min-height: 72px;
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.35);
+  background: #f9fafb;
+}
+
+/* Спеціальні поля */
+
+.field-account {
+  grid-column: 1 / -1;
+}
+
+.field-extra {
+  grid-column: 1 / -1;
+}
+
+.field-app-types {
+  grid-column: 1 / -1;
+}
+
+/* Вкладене поле "Інше — опишіть" */
+
+.nested {
+  margin-top: 8px;
+}
+
+.field-extra-other input {
+  border-radius: 9999px;
+}
+
+/* Заява: так/ні */
+
+.field-yesno .radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.radio-group label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 400;
+  color: #374151;
+}
+
+.req {
+  color: #ef4444;
+  margin-left: 4px;
+}
+
+/* Коментар */
+
+.field-comment textarea {
+  width: 100%;
+}
+
+/* ========== КНОПКИ В МОДАЛЦІ ========== */
+
+.modal-footer button,
+.login-container button {
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 }
 
-.modal-actions button:hover {
-  background: #115293;
+/* Старт */
+
+.modal-overlay .modal-footer .start {
+  background: #22c55e;
+  color: #ffffff;
 }
 
-.ticket.empty {
-  text-align: center;
-  color: #888;
-  font-style: italic;
-  padding: 24px;
-  cursor: default;
-  background: #fafafa;
-  border-left: none;
+.modal-overlay .modal-footer .start:hover {
+  background: #16a34a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
 }
 
-.warning-banner {
-  background-color: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
-  padding: 10px;
-  font-size: 16px;
-  text-align: center;
-  margin-bottom: 15px;
-  border-radius: 6px;
+/* Фініш */
+
+.modal-overlay .modal-footer .finish {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.modal-overlay .modal-footer .finish:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+/* Не зʼявився */
+
+.modal-overlay .modal-footer .skip {
+  background: #ff6262;
+  color: #ffffff;
+}
+
+.modal-overlay .modal-footer .skip:hover {
+  background: #ff1212;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(248, 113, 113, 0.35);
+}
+
+/* Закрити */
+
+.modal-overlay .modal-footer .close {
+  background: #bbb5b5;
+  color: #374151;
+}
+
+.modal-overlay .modal-footer .close:hover {
+  background: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(148, 163, 184, 0.35);
+}
+
+/* ========== MULTI-SELECT DROPDOWN (msd) ========== */
+
+.msd {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  font-size: 14px;
+}
+
+.msd-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.msd-btn {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.msd-btn:hover {
+  border-color: #9ca3af;
+  background: #f9fafb;
+  box-shadow: 0 2px 8px rgba(148, 163, 184, 0.35);
+  transform: translateY(-1px);
+}
+
+.msd-ph {
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.msd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.msd-chip {
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: #e5f0ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.msd-more {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Стрілочка */
+
+.msd-caret {
+  margin-left: auto;
+  font-size: 10px;
+  transform: translateY(-1px);
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.msd-caret.up {
+  transform: translateY(-1px) rotate(180deg);
+}
+
+/* Панель опцій */
+
+.msd-panel {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  z-index: 10;
+  transform-origin: top;
+  animation: msdIn 0.14s ease-out;
+  box-sizing: border-box;
+}
+
+/* напрямок відкриття */
+
+.msd-panel.down {
+  top: calc(100% + 4px);
+  bottom: auto;
+}
+
+.msd-panel.up {
+  bottom: calc(100% + 4px);
+  top: auto;
+}
+
+.msd-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e5e7eb;
+  gap: 8px;
+  background: #f9fafb;
+}
+
+.msd-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.msd-link:hover {
+  text-decoration: underline;
+}
+
+/* ТІЛО СПИСКУ — ЄДИНИЙ СКРОЛ */
+
+.msd-list {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.msd-empty {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.msd-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.msd-option:hover {
+  background: #f3f4f6;
+}
+
+.msd-option input {
+  margin-top: 2px;
+}
+
+/* анімація появи */
+
+@keyframes msdIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ========== ЕКРАН ЛОГІНУ ========== */
+
+.login-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: #f9fafb;
+  box-sizing: border-box;
+}
+
+.login-container h2 {
+  margin-bottom: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.login-container input {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 9999px;
+  border: 1px solid #d1d5db;
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  background: #ffffff;
+  box-sizing: border-box;
+}
+
+.login-container input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+  background: #f9fafb;
+}
+
+.login-container button {
+  margin-top: 4px;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.login-container button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+/* ========== ДРІБНІ УТИЛІТИ ========== */
+
+.empty {
+  color: #9ca3af;
 }

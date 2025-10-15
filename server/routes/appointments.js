@@ -8,4 +8,6 @@ router.post('/:id/start', controller.startAppointment);
 router.post('/:id/finish', controller.finishAppointment);
 router.post('/:id/did-not-appear', controller.didNotAppear);
 
+router.patch('/:id/meta', controller.updateMetaAppointment);
+
 module.exports = router;

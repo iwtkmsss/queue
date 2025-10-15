@@ -2,6 +2,12 @@ const express = require('express');
 const router = express.Router();
 const settingsService = require('../services/settingsService');
 const settingsController = require('../controllers/settingsController');
+const { getOptions } = require('../services/optionsService');
+
+router.get('/options', (req, res) => {
+  const opts = getOptions();
+  res.json(opts);
+});
 
 router.get('/:key', (req, res) => {
   settingsService.getSetting(req.params.key, (err, value) => {

@@ -57,6 +57,9 @@ Thumbs.db
 *.swp
 *.swo
 
-# SQLite
+# ========================
+# SQLite database
+# ========================
 *.sqlite
 *.sqlite-journal
+

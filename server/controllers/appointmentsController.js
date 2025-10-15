@@ -77,16 +77,71 @@ exports.finishAppointment = (req, res) => {
   const { id } = req.params;
   const now = moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
 
-  db.run(
-    `UPDATE queue SET status = 'completed', end_time = ? WHERE id = ?`,
-    [now, id],
-    (err) => {
-      if (err) return res.status(500).json({ error: 'DB error (finish)' });
-      broadcast({ type: 'queue_updated' });
-      res.json({ success: true });
+  // локальна валідація на фініші
+  const validate = (rowOrBody) => {
+    const toArray = (v) => {
+      if (Array.isArray(v)) return v;
+      if (typeof v === 'string') {
+        try { const t = v.trim(); return t.startsWith('[') ? JSON.parse(t) : (t ? [t] : []); }
+        catch { return []; }
+      }
+      return [];
+    };
+
+    const errors = [];
+    const personal_account = (rowOrBody.personal_account ?? '').trim();
+    const extra_actions = toArray(rowOrBody.extra_actions);
+    const extra_other_text = (rowOrBody.extra_other_text ?? '').trim();
+    const application_yesno =
+      rowOrBody.application_yesno === null || rowOrBody.application_yesno === undefined
+        ? null
+        : !!rowOrBody.application_yesno;
+    const application_types = application_yesno ? toArray(rowOrBody.application_types) : [];
+
+    if (!personal_account) errors.push('Вкажіть особовий рахунок.');
+    if (extra_actions.length === 0) errors.push('Оберіть принаймні одну додаткову дію.');
+    if (extra_actions.includes('EX_OTHER_FREE_TEXT') && !extra_other_text) {
+      errors.push('Опишіть "Інше" у текстовому полі.');
     }
-  );
+    if (application_yesno === null) errors.push('Вкажіть, чи є заява (так/ні).');
+    if (application_yesno === true && application_types.length === 0) {
+      errors.push('Оберіть тип(и) заяви.');
+    }
+
+    return { ok: errors.length === 0, errors };
+  };
+
+  // якщо фронт надіслав мету в тілі — перевіряємо її; інакше читаємо з БД
+  const finishWith = (payload) => {
+    const v = validate(payload);
+    if (!v.ok) return res.status(400).json({ errors: v.errors });
+
+    db.run(
+      `UPDATE queue SET status='completed', end_time=? WHERE id=?`,
+      [now, id],
+      (err) => {
+        if (err) return res.status(500).json({ error: 'DB error (finish)' });
+        broadcast({ type: 'queue_updated' });
+        res.json({ success: true });
+      }
+    );
+  };
+
+  if (req.body && Object.keys(req.body).length) {
+    // приймаємо з фронту (автозбереження могло ще не відпрацювати)
+    // швидко підсейвимо м’яко:
+    req.params.id = id;
+    exports.updateMetaAppointment(req, { json: () => {}, status: () => ({ json: () => {} }) });
+    return finishWith(req.body);
+  }
+
+  // або тягнемо з БД
+  db.get('SELECT * FROM queue WHERE id=?', [id], (err, row) => {
+    if (err || !row) return res.status(404).json({ error: 'Запис не знайдено' });
+    finishWith(row);
+  });
 };
+
 
 // ПРОПУЩЕНО (автоматично)
 exports.skipAppointment = (req, res) => {
@@ -129,3 +184,64 @@ exports.didNotAppear = (req, res) => {
     );
   });
 };
+
+// ОНОВЛЕННЯ ДАНИХ (soft save: без жорсткої валідації)
+exports.updateMetaAppointment = (req, res) => {
+  const db = req.app.get('db');
+  const { id } = req.params;
+
+  const {
+    personal_account = '',
+    extra_actions = [],
+    extra_other_text = '',
+    application_yesno = null,
+    application_types = [],
+    manager_comment = ''
+  } = req.body || {};
+
+  // м'яка нормалізація форматів
+  const toArray = (v) => {
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'string') {
+      try {
+        const t = v.trim();
+        return t.startsWith('[') ? JSON.parse(t) : (t ? [t] : []);
+      } catch { return []; }
+    }
+    return [];
+  };
+
+  const sql = `
+    UPDATE queue SET
+      personal_account   = ?,
+      extra_actions      = ?,
+      extra_other_text   = ?,
+      application_yesno  = ?,
+      application_types  = ?,
+      manager_comment    = ?
+    WHERE id = ?
+  `;
+
+  db.run(
+    sql,
+    [
+      String(personal_account || '').trim(),
+      JSON.stringify(toArray(extra_actions)),
+      String(extra_other_text || '').trim() || null,
+      application_yesno === null ? null : (application_yesno ? 1 : 0),
+      (application_yesno ? JSON.stringify(toArray(application_types)) : null),
+      String(manager_comment || '').trim() || null,
+      id
+    ],
+    (err) => {
+      if (err) {
+        console.error('❌ DB error (updateMetaAppointment):', err);
+        return res.status(500).json({ error: 'DB error (update meta)' });
+      }
+      // без перевірок: просто повідомляємо фронт
+      broadcast({ type: 'queue_updated' });
+      res.json({ ok: true });
+    }
+  );
+};
+

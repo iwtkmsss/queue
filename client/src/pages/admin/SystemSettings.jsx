@@ -6,9 +6,10 @@ export default function SystemSettings() {
   const [serviceMinutes, setServiceMinutes] = useState('20');
   const [alarmActive, setAlarmActive] = useState('false');
   const [maxWait, setMaxWait] = useState('5');
+  const [lunchDuration, setLunchDuration] = useState('60');
 
   useEffect(() => {
-    fetch(`${API_URL}/settings/service_duration`)
+    fetch(`${API_URL}/settings/service_minutes`)
       .then(res => res.json())
       .then(data => setServiceMinutes(data.value || '20'));
 
@@ -18,7 +19,12 @@ export default function SystemSettings() {
 
     fetch(`${API_URL}/settings/max_wait_multiplier`)
       .then(res => res.json())
-      .then(data => setMaxWait(data.value || '4'));
+      .then(data => setMaxWait(data.value || '5'));
+
+    fetch(`${API_URL}/settings/lunch_duration`)
+      .then(res => res.json())
+      .then(data => setLunchDuration(data.value || '60'));
+
   }, []);
 
   const handleSave = async () => {
@@ -104,6 +110,19 @@ export default function SystemSettings() {
             type="number"
             value={maxWait}
             onChange={(e) => setMaxWait(e.target.value)}
+            min="1"
+            style={{ marginLeft: '10px', padding: '4px', width: '60px' }}
+          />
+        </label>
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <label>
+          🍽️ Час обіду (хв):
+          <input
+            type="number"
+            value={lunchDuration}
+            onChange={(e) => setLunchDuration(e.target.value)}
             min="1"
             style={{ marginLeft: '10px', padding: '4px', width: '60px' }}
           />
