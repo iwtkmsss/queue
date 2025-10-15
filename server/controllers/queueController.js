@@ -35,23 +35,23 @@ exports.updateQueueWindow = (req, res) => {
 exports.createQueueRecord = async (req, res) => {
   try {
     const { question_id, appointment_time, customer_name, window_id } = req.body;
-
     if (!question_id || !appointment_time || !window_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Конвертуємо у формат Europe/Kyiv
-    const appointmentKyiv = moment(appointment_time).tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
+    // 🔹 Ми точно знаємо, що приходить час у зоні Europe/Kyiv
+    const appointmentKyivStr = moment
+      .tz(appointment_time, 'YYYY-MM-DD HH:mm:ss', 'Europe/Kyiv')
+      .format('YYYY-MM-DD HH:mm:ss');
 
     const ticket = await queueService.createQueueRecord({
       question_id,
-      appointment_time: appointmentKyiv,
+      appointment_time: appointmentKyivStr, // зберігаємо як Київ
       customer_name: customer_name || '—',
       window_id
     });
 
     broadcast({ type: 'queue_updated' });
-
     res.status(201).json(ticket);
   } catch (error) {
     console.error('Error in createQueueRecord:', error);

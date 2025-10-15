@@ -12,13 +12,19 @@ pnpm-debug.log*
 # ========================
 dist/
 build/
-
+    
 # ========================
 # Vite / React cache
 # ========================
 .cache/
 .vite/
 vite.config.ts.timestamp*
+
+# ========================
+# SQLite database
+# ========================
+*.sqlite
+*.sqlite-journal
 
 # ========================
 # Logs

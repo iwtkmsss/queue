@@ -113,15 +113,14 @@ const Queue = () => {
   const handleSubmit = async () => {
     if (!selectedSlot || !selectedWindow) return;
 
-    const appointment_time_req = moment.tz(selectedSlot, 'Europe/Kyiv')
-      .format('YYYY-MM-DD HH:mm:ss');
+    const appointment_time = moment.tz(selectedSlot, 'Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
 
     const res = await fetch(`${API_URL}/queue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question_id: selectedQuestionId,
-        appointment_time: appointment_time_req,
+        appointment_time: appointment_time,
         window_id: selectedWindow
       })
     });
@@ -181,8 +180,10 @@ const Queue = () => {
     return (
       <div className="confirmation">
         <h2>Ваш талон створено!</h2>
-        <p>Дата: {confirmation.appointment_time.slice(0, 10)}</p>
-        <p>Час: {new Date(confirmation.appointment_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</p>
+        <p>Дата: {moment.tz(confirmation.appointment_time, 'Europe/Kyiv').format('YYYY-MM-DD')}</p>
+        <p>
+          Час: {moment.tz(confirmation.appointment_time, 'Europe/Kyiv').format('HH:mm')}
+        </p>
         <p>Номер талону: {confirmation.id}</p>
 
         <button
