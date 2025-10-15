@@ -50,3 +50,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# SQLite
+*.sqlite
+*.sqlite-journal
