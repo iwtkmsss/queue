@@ -204,19 +204,20 @@ async function getMaxWaitMultiplier() {
   return Number(row?.value || 4);
 }
 
-const createQueueRecord = async ({ question_id, appointment_time, window_id }) => {
+const createQueueRecord = async ({ question_id, question_text, appointment_time, window_id }) => {
   const status = 'waiting';
   const created_at = moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
 
   const result = await db.runAsync(
-    `INSERT INTO queue (question_id, appointment_time, window_id, status, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [question_id, appointment_time, window_id, status, created_at]
+    `INSERT INTO queue (question_id, question_text, appointment_time, window_id, status, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [question_id, question_text || null, appointment_time, window_id, status, created_at]
   );
 
   return {
     id: result.lastID,
     question_id,
+    question_text: question_text || null,
     appointment_time,
     window_id,
     status,

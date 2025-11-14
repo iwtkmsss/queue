@@ -115,12 +115,17 @@ const Queue = () => {
 
     const appointment_time = moment.tz(selectedSlot, 'Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
 
+    // 👉 Знаходимо текст питання по id
+    const selectedQuestion = questions.find(q => q.id === selectedQuestionId);
+    const question_text = selectedQuestion ? selectedQuestion.text : null;
+
     const res = await fetch(`${API_URL}/queue`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question_id: selectedQuestionId,
-        appointment_time: appointment_time,
+        question_text,               // 🔹 нове поле
+        appointment_time,
         window_id: selectedWindow
       })
     });
@@ -215,9 +220,14 @@ const Queue = () => {
   if (screen === 1) {
     return (
       <div className="welcome-screen">
-        <h1>Вас вітає центр обслуговування споживачів</h1>
-        <h2>ТОВ «ЄВРО-РЕКОНСТРУКЦІЯ»</h2>
-        <p className="instruction">Виберіть питання:</p>
+        
+        <img 
+          src="/er-logo-vector.svg" 
+          alt="ЄВРО-РЕКОНСТРУКЦІЯ логотип" 
+          className="er-logo"
+        />
+        
+        <h2 className="instruction">Виберіть питання:</h2>
         <div className="questions-grid">
           {questions.map((q) => (
             <button
@@ -243,7 +253,6 @@ const Queue = () => {
       {weekDays
         .filter((day) => {
           const slots = slotsByDay[day]?.slots || [];
-          // Показуй тільки, якщо є хоча б 1 слот, який не зайнятий
           return slots.some(s => !(s.taken || s.skipped));
         })
         .map((day) => {

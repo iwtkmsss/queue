@@ -13,13 +13,18 @@ exports.getTodayAppointments = (req, res) => {
   const today = moment().tz('Europe/Kiev').format('YYYY-MM-DD');
 
   const sql = `
-    SELECT q.id, q.appointment_time, q.status, que.text AS question_text
+    SELECT 
+      q.id,
+      q.appointment_time,
+      q.status,
+      COALESCE(q.question_text, que.text) AS question_text
     FROM queue q
-    JOIN questions que ON q.question_id = que.id
+    LEFT JOIN questions que ON q.question_id = que.id
     WHERE DATE(q.appointment_time) = ?
       AND q.window_id = ?
     ORDER BY q.appointment_time ASC
   `;
+
 
   db.all(sql, [today, window], (err, rows) => {
     if (err) {

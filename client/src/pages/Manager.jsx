@@ -177,10 +177,9 @@ const Manager = () => {
     const isArray = Array.isArray;
 
     if (!m.personal_account?.trim()) errs.push('Вкажіть особовий рахунок.');
-    if (!isArray(m.extra_actions) || m.extra_actions.length === 0) {
-      errs.push('Оберіть принаймні одну додаткову дію.');
-    }
-    if (isArray(m.extra_actions) && m.extra_actions.includes('EX_OTHER_FREE_TEXT') && !m.extra_other_text?.trim()) {
+    if (isArray(m.extra_actions) &&
+        m.extra_actions.includes('EX_OTHER_FREE_TEXT') &&
+        !m.extra_other_text?.trim()) {
       errs.push('Опишіть "Інше" у текстовому полі.');
     }
     if (m.application_yesno === null) errs.push('Вкажіть, чи є заява (так/ні).');
@@ -217,10 +216,10 @@ const Manager = () => {
   const isExtraOtherSelected = Array.isArray(meta.extra_actions) && meta.extra_actions.includes('EX_OTHER_FREE_TEXT');
   const isFinishDisabled =
     !meta.personal_account.trim() ||
-    !Array.isArray(meta.extra_actions) || meta.extra_actions.length === 0 ||
     (isExtraOtherSelected && !meta.extra_other_text.trim()) ||
     (meta.application_yesno === null) ||
-    (meta.application_yesno === true && (!Array.isArray(meta.application_types) || meta.application_types.length === 0));
+    (meta.application_yesno === true && 
+      (!Array.isArray(meta.application_types) || meta.application_types.length === 0));
 
   const onMetaChange = (patch) => {
     const next = { ...meta, ...patch };
@@ -463,8 +462,7 @@ const Manager = () => {
     }
   };
 
-  // ⚠ тут є хук усередині умовної гілки (як і було раніше в коді).
-  // Я не чіпав цю частину, щоб не ламати існуючий флоу авторизації.
+
   if (!employee) {
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
@@ -589,7 +587,15 @@ const Manager = () => {
             <li
               key={app.id}
               className={`ticket ${app.status?.toLowerCase()}`}
-              onClick={() => setSelectedTicket(app)}
+              onClick={() => {
+                if (
+                app.status?.toLowerCase() === 'completed' || 
+                app.status?.toLowerCase() === 'missed' || 
+                app.status?.toLowerCase() === 'did_not_appear') {
+                  return; 
+              }
+              setSelectedTicket(app);
+            }}
             >
               <strong>
                 {new Date(app.appointment_time).toLocaleTimeString('uk-UA', {
@@ -627,7 +633,6 @@ const Manager = () => {
               <div className="field field-extra">
                 <MultiSelectDropdown
                   label="Додаткові дії"
-                  required
                   options={options.extra_actions}
                   value={Array.isArray(meta.extra_actions) ? meta.extra_actions : []}
                   onChange={(arr) => onMetaChange({ extra_actions: arr })}

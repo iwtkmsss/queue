@@ -34,19 +34,19 @@ exports.updateQueueWindow = (req, res) => {
 
 exports.createQueueRecord = async (req, res) => {
   try {
-    const { question_id, appointment_time, customer_name, window_id } = req.body;
+    const { question_id, question_text, appointment_time, customer_name, window_id } = req.body;
     if (!question_id || !appointment_time || !window_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // 🔹 Ми точно знаємо, що приходить час у зоні Europe/Kyiv
     const appointmentKyivStr = moment
       .tz(appointment_time, 'YYYY-MM-DD HH:mm:ss', 'Europe/Kyiv')
       .format('YYYY-MM-DD HH:mm:ss');
 
     const ticket = await queueService.createQueueRecord({
       question_id,
-      appointment_time: appointmentKyivStr, // зберігаємо як Київ
+      question_text: question_text || null,       // 🔹 нове поле
+      appointment_time: appointmentKyivStr,
       customer_name: customer_name || '—',
       window_id
     });
@@ -146,7 +146,7 @@ exports.getLastByQuestion = (req, res) => {
       return res.status(404).json({ error: 'No completed record found' });
     }
 
-    res.json(row); // { window_id, appointment_time }
+    res.json(row);
   });
 };
 

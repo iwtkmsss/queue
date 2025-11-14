@@ -234,6 +234,23 @@
   border-left: 4px solid #ef4444;
 }
 
+.ticket.completed,
+.ticket.missed,
+.ticket.did_not_appear {
+  background: #f3f4f6;               /* трохи сіріший фон */
+  cursor: default;                    /* курсор не "рука" */
+  opacity: 0.85;                      /* легке затемнення */
+}
+
+/* При наведенні — нічого не відбувається */
+.ticket.completed:hover,
+.ticket.missed:hover,
+.ticket.did_not_appear:hover {
+  background: #f3f4f6;
+  transform: none;
+  box-shadow: none;
+}
+
 /* ========== МОДАЛЬНЕ ВІКНО ========== */
 
 .modal-overlay {
@@ -266,13 +283,13 @@
 }
 
 .modal-window h3 {
-  margin: 0 0 4px;
+  margin: 0 0 6px;
   font-size: 20px;
   font-weight: 600;
   color: #111827;
 }
 
-.modal-window p {
+.modal-window > p {
   margin: 2px 0;
   font-size: 14px;
   color: #4b5563;
@@ -281,21 +298,22 @@
 /* Контент модалки скролиться ОДИН раз */
 
 .modal-body {
-  margin-top: 12px;
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
+  margin-top: 12px;            /* невеликий “подих” під текстом */
+  padding-top: 16px;
+  border-top: 1px solid #959595;
 }
 
 /* Низ модалки з кнопками */
 
 .modal-footer {
-  margin-top: 16px;
-  padding-top: 12px;
+  padding: 14px 24px;
   border-top: 1px solid #e5e7eb;
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+  background: #fff;
+  position: sticky;
+  bottom: 0;
 }
 
 /* Плашка "Збереження..." */
@@ -311,13 +329,31 @@
 .meta-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-  margin-top: 8px;
+  row-gap: 16px;
+  column-gap: 16px;
+  margin-top: 4px;
 }
 
+/* На ширших екранах — дві колонки */
 @media (min-width: 768px) {
   .meta-form {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr);
+  }
+
+  /* Широкі поля на всю */
+  .field-account,
+  .field-extra,
+  .field-app-types {
+    grid-column: 1 / -1;
+  }
+
+  /* Заява / Коментар — чітко 2 колонки */
+  .field-yesno {
+    grid-column: 1 / 2;
+  }
+
+  .field-comment {
+    grid-column: 2 / 3;
   }
 }
 
@@ -332,6 +368,9 @@
   font-size: 13px;
   font-weight: 500;
   color: #374151;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .field input,
@@ -348,7 +387,7 @@
 
 .field textarea {
   border-radius: 12px;
-  min-height: 72px;
+  min-height: 80px;
   resize: vertical;
 }
 
@@ -375,10 +414,22 @@
 
 /* Вкладене поле "Інше — опишіть" */
 
-.nested {
+.field-extra .nested {
   margin-top: 8px;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
 }
 
+.field-extra .nested label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+.field-extra .nested input {
+  margin-top: 4px;
+}
 .field-extra-other input {
   border-radius: 9999px;
 }
@@ -393,18 +444,21 @@
 }
 
 .radio-group label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
   font-weight: 400;
   color: #374151;
 }
 
-.req {
-  color: #ef4444;
-  margin-left: 4px;
+.radio-group input[type="radio"] {
+  margin: 0;
 }
 
+.req {
+  color: #ef4444;
+  margin-left: 2px;
+}
 /* Коментар */
 
 .field-comment textarea {
