@@ -224,7 +224,27 @@ const Manager = () => {
   const onMetaChange = (patch) => {
     const next = { ...meta, ...patch };
     setMeta(next);
-    if (selectedTicket?.id) saveMeta(selectedTicket.id, next);
+
+    if (selectedTicket?.id) {
+      // 1) Оновлюємо вибраний талон (те, що показано в модалці)
+      setSelectedTicket(prev =>
+        prev && prev.id === selectedTicket.id
+          ? { ...prev, ...patch }
+          : prev
+      );
+
+      // 2) Оновлюємо цей же талон у загальному списку appointments
+      setAppointments(prev =>
+        prev.map(app =>
+          app.id === selectedTicket.id
+            ? { ...app, ...patch }
+            : app
+        )
+      );
+
+      // 3) Відправляємо оновлену мету на сервер (як і було)
+      saveMeta(selectedTicket.id, next);
+    }
   };
 
   useEffect(() => {

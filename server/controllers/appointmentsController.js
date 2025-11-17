@@ -17,7 +17,13 @@ exports.getTodayAppointments = (req, res) => {
       q.id,
       q.appointment_time,
       q.status,
-      COALESCE(q.question_text, que.text) AS question_text
+      COALESCE(q.question_text, que.text) AS question_text,
+      q.personal_account,
+      q.extra_actions,
+      q.extra_other_text,
+      q.application_yesno,
+      q.application_types,
+      q.manager_comment
     FROM queue q
     LEFT JOIN questions que ON q.question_id = que.id
     WHERE DATE(q.appointment_time) = ?
@@ -104,7 +110,6 @@ exports.finishAppointment = (req, res) => {
     const application_types = application_yesno ? toArray(rowOrBody.application_types) : [];
 
     if (!personal_account) errors.push('Вкажіть особовий рахунок.');
-    if (extra_actions.length === 0) errors.push('Оберіть принаймні одну додаткову дію.');
     if (extra_actions.includes('EX_OTHER_FREE_TEXT') && !extra_other_text) {
       errors.push('Опишіть "Інше" у текстовому полі.');
     }
