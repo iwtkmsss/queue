@@ -6,31 +6,40 @@ export default function SystemSettings() {
   const [serviceMinutes, setServiceMinutes] = useState('20');
   const [alarmActive, setAlarmActive] = useState('false');
   const [maxWait, setMaxWait] = useState('5');
-  const [lunchDuration, setLunchDuration] = useState('60');
+
+  // 🟢 НОВЕ: обідня перерва
+  const [lunchStart, setLunchStart] = useState('');
+  const [lunchEnd, setLunchEnd] = useState('');
 
   useEffect(() => {
+    // GET service_minutes
     fetch(`${API_URL}/settings/service_minutes`)
       .then(res => res.json())
       .then(data => setServiceMinutes(data.value || '20'));
 
+    // GET alarm_active
     fetch(`${API_URL}/settings/alarm_active`)
       .then(res => res.json())
       .then(data => setAlarmActive(data.value || 'false'));
 
+    // GET max_wait_multiplier
     fetch(`${API_URL}/settings/max_wait_multiplier`)
       .then(res => res.json())
       .then(data => setMaxWait(data.value || '5'));
 
-    fetch(`${API_URL}/settings/lunch_duration`)
+    // 🟢 GET lunch settings
+    fetch(`${API_URL}/settings/lunch`)
       .then(res => res.json())
-      .then(data => setLunchDuration(data.value || '60'));
-
+      .then(data => {
+        setLunchStart(data.start || '');
+        setLunchEnd(data.end || '');
+      });
   }, []);
 
   const handleSave = async () => {
     const requests = [];
 
-    // 1️⃣ Звичайний service_duration — універсальний POST
+    // 1️⃣ Зберегти service_minutes
     requests.push(
       fetch(`${API_URL}/settings/`, {
         method: 'POST',
@@ -42,7 +51,7 @@ export default function SystemSettings() {
       })
     );
 
-    // 2️⃣ alarm_active — окремий PATCH
+    // 2️⃣ Зберегти alarm
     requests.push(
       fetch(`${API_URL}/settings/alarm`, {
         method: 'PATCH',
@@ -51,7 +60,7 @@ export default function SystemSettings() {
       })
     );
 
-    // 3️⃣ max_wait_multiplier — теж універсальний POST
+    // 3️⃣ Зберегти max_wait_multiplier
     requests.push(
       fetch(`${API_URL}/settings/`, {
         method: 'POST',
@@ -59,6 +68,18 @@ export default function SystemSettings() {
         body: JSON.stringify({
           key: 'max_wait_multiplier',
           value: maxWait,
+        }),
+      })
+    );
+
+    // 4️⃣ 🟢 Зберегти lunch_start та lunch_end
+    requests.push(
+      fetch(`${API_URL}/settings/lunch`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start: lunchStart,
+          end: lunchEnd,
         }),
       })
     );
@@ -76,6 +97,7 @@ export default function SystemSettings() {
     <div style={{ maxWidth: '400px', margin: '0 auto' }}>
       <h2>🔧 Системні налаштування</h2>
 
+      {/* ======================= service_minutes ======================= */}
       <div style={{ marginBottom: '10px' }}>
         <label>
           ⏱️ Тривалість обслуговування (хв):
@@ -89,6 +111,7 @@ export default function SystemSettings() {
         </label>
       </div>
 
+      {/* ======================= alarm_active ======================= */}
       <div style={{ marginBottom: '10px' }}>
         <label>
           🚨 Тривога активна:
@@ -103,6 +126,7 @@ export default function SystemSettings() {
         </label>
       </div>
 
+      {/* ======================= max_wait_multiplier ======================= */}
       <div style={{ marginBottom: '10px' }}>
         <label>
           ⏳ Макс. множник очікування:
@@ -116,15 +140,27 @@ export default function SystemSettings() {
         </label>
       </div>
 
+      {/* ======================= LUNCH SETTINGS ======================= */}
       <div style={{ marginBottom: '10px' }}>
         <label>
-          🍽️ Час обіду (хв):
+          🍽️ Початок обіду:
           <input
-            type="number"
-            value={lunchDuration}
-            onChange={(e) => setLunchDuration(e.target.value)}
-            min="1"
-            style={{ marginLeft: '10px', padding: '4px', width: '60px' }}
+            type="time"
+            value={lunchStart}
+            onChange={(e) => setLunchStart(e.target.value)}
+            style={{ marginLeft: '10px', padding: '4px' }}
+          />
+        </label>
+      </div>
+
+      <div style={{ marginBottom: '10px' }}>
+        <label>
+          🍽️ Кінець обіду:
+          <input
+            type="time"
+            value={lunchEnd}
+            onChange={(e) => setLunchEnd(e.target.value)}
+            style={{ marginLeft: '10px', padding: '4px' }}
           />
         </label>
       </div>

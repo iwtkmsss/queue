@@ -1,6 +1,25 @@
 const db = require('../database');
 const moment = require('moment-timezone');
 
+
+// ==============================
+//  ОБІДНЯ ПЕРЕРВА (settings)
+// ==============================
+
+async function getLunchSettings() {
+  const startRow = await db.getAsync(
+    "SELECT value FROM settings WHERE key = 'lunch_start'"
+  );
+  const endRow = await db.getAsync(
+    "SELECT value FROM settings WHERE key = 'lunch_end'"
+  );
+
+  return {
+    start: startRow?.value || null,
+    end: endRow?.value || null,
+  };
+}
+
 const getAvailableTimes = async (questionId, date) => {
   const serviceDuration = await getServiceDuration();
   const maxWaitMultiplier = await getMaxWaitMultiplier();
@@ -135,6 +154,7 @@ async function getFreeTimeSlotsForEmployee(employee, date, duration) {
   const busyTimes = new Set(
     existing.map(row => moment(row.appointment_time).format('HH:mm'))
   );
+
   // 2️⃣ Графік дня
   const daySchedule = employee.schedule[date];
   if (!daySchedule || !daySchedule.start || !daySchedule.end) {
@@ -144,15 +164,36 @@ async function getFreeTimeSlotsForEmployee(employee, date, duration) {
   const start = moment.tz(`${date} ${daySchedule.start}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv');
   const end = moment.tz(`${date} ${daySchedule.end}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv');
 
+  // 3️⃣ Обідня перерва для цього дня
+  const lunch = await getLunchSettings();
+  let lunchStart = null;
+  let lunchEnd = null;
+
+  if (lunch.start && lunch.end) {
+    lunchStart = moment.tz(`${date} ${lunch.start}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv');
+    lunchEnd = moment.tz(`${date} ${lunch.end}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv');
+  }
 
   const timeSlots = [];
   let current = start.clone();
 
   while (current.isBefore(end)) {
     const slotTime = current.format('HH:mm');
-    
+
+    // 🔥 пропускаємо слот, якщо він потрапляє в обідню перерву
+    if (
+      lunchStart &&
+      lunchEnd &&
+      current.isSameOrAfter(lunchStart) &&
+      current.isBefore(lunchEnd)
+    ) {
+      current.add(duration, 'minutes');
+      continue;
+    }
+
     if (current.isSameOrAfter(now)) {
       if (busyTimes.has(slotTime)) {
+        // зайнятий — просто не додаємо
       } else {
         timeSlots.push({
           time: current.toISOString(),

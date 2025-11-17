@@ -9,6 +9,12 @@ router.get('/options', (req, res) => {
   res.json(opts);
 });
 
+router.get('/alarm', settingsController.getAlarmStatus);
+router.patch('/alarm', settingsController.setAlarmStatus);
+
+router.get('/lunch', settingsController.getLunchSettings);
+router.patch('/lunch', settingsController.setLunchSettings);
+
 router.get('/:key', (req, res) => {
   settingsService.getSetting(req.params.key, (err, value) => {
     if (err) return res.status(500).json({ error: 'DB error' });
@@ -26,7 +32,6 @@ router.post('/', (req, res) => {
   });
 });
 
-router.get('/alarm', settingsController.getAlarmStatus);
-router.patch('/alarm', settingsController.setAlarmStatus);
+
 
 module.exports = router;
