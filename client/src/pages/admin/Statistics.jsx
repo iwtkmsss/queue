@@ -50,6 +50,7 @@ const Statistics = () => {
   const [groupBy, setGroupBy] = useState('hour');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(false);
+  const [options, setOptions] = useState({ extra_actions: [], application_types: [] });
 
   // Export-specific state (окремо від графіка)
   const [exportFrom, setExportFrom] = useState('');
@@ -66,6 +67,16 @@ const Statistics = () => {
     [questions]
   );
 
+  const extraActionsMap = useMemo(
+    () => new Map(options.extra_actions.map((o) => [String(o.id ?? o), o.label ?? o])),
+    [options.extra_actions]
+  );
+
+  const applicationTypesMap = useMemo(
+    () => new Map(options.application_types.map((o) => [String(o.id ?? o), o.label ?? o])),
+    [options.application_types]
+  );
+
   const fetchQuestions = async () => {
     try {
       const res = await fetch(`${API_URL}/queue/questions`);
@@ -73,6 +84,19 @@ const Statistics = () => {
       setQuestions(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Помилка завантаження питань:', err);
+    }
+  };
+
+  const fetchOptions = async () => {
+    try {
+      const res = await fetch(`${API_URL}/settings/options`);
+      const data = await res.json();
+      setOptions({
+        extra_actions: Array.isArray(data.extra_actions) ? data.extra_actions : [],
+        application_types: Array.isArray(data.application_types) ? data.application_types : [],
+      });
+    } catch (err) {
+      console.error('Помилка завантаження опцій:', err);
     }
   };
 
@@ -111,6 +135,7 @@ const Statistics = () => {
     setExportFrom(from);
     setExportTo(to);
     fetchQuestions();
+    fetchOptions();
   }, []);
 
   useEffect(() => {
@@ -126,7 +151,12 @@ const Statistics = () => {
     if (key === 'application_types' || key === 'extra_actions') {
       try {
         const arr = Array.isArray(val) ? val : JSON.parse(val || '[]');
-        return Array.isArray(arr) ? arr.join(', ') : '';
+        if (!Array.isArray(arr)) return '';
+        const map = key === 'application_types' ? applicationTypesMap : extraActionsMap;
+        return arr
+          .map((id) => map.get(String(id)) || String(id))
+          .filter(Boolean)
+          .join(', ');
       } catch {
         return val || '';
       }

@@ -229,10 +229,58 @@ const QueueManager = () => {
     }
   };
 
+  const fetchWindowWaiting = async (winId) => {
+    if (!winId) return [];
+    try {
+      const params = new URLSearchParams({
+        window_id: winId,
+        status: 'waiting',
+        limit: 500,
+        offset: 0,
+        sort_field: 'appointment_time',
+        sort_dir: 'asc',
+      });
+      const res = await fetch(`${API_URL}/queue?${params.toString()}`);
+      const data = await res.json();
+      return Array.isArray(data.rows) ? data.rows : [];
+    } catch {
+      return [];
+    }
+  };
+
   const handleBulkRedirect = async () => {
     if (!windowFrom || !windowTo || isNaN(windowFrom) || isNaN(windowTo)) {
       showError('Вкажіть коректні номери вікон');
       return;
+    }
+
+    const fromWin = parseInt(windowFrom, 10);
+    const toWin = parseInt(windowTo, 10);
+
+    // Перевірка конфліктів часу у цільовому вікні
+    try {
+      const [fromRows, toRows] = await Promise.all([
+        fetchWindowWaiting(fromWin),
+        fetchWindowWaiting(toWin),
+      ]);
+
+      const toTimes = new Set(
+        toRows
+          .map((r) => new Date(r.appointment_time).getTime())
+          .filter((t) => !isNaN(t))
+      );
+      const conflicts = fromRows
+        .map((r) => new Date(r.appointment_time))
+        .filter((d) => !isNaN(d.getTime()) && toTimes.has(d.getTime()))
+        .map((d) => d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }));
+
+      if (conflicts.length > 0) {
+        const timesText = [...new Set(conflicts)].join(', ');
+        const confirmed = window.confirm(`У вікна ${toWin} уже є запис на ${timesText}. Ви впевнені, що хочете перенести?`);
+        if (!confirmed) return;
+      }
+    } catch (err) {
+      console.warn('Не вдалося перевірити конфлікти під час перенесення:', err);
     }
 
     try {
@@ -240,8 +288,8 @@ const QueueManager = () => {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: parseInt(windowFrom, 10),
-          to: parseInt(windowTo, 10)
+          from: fromWin,
+          to: toWin
         })
       });
 
@@ -274,6 +322,29 @@ const QueueManager = () => {
 
   const handleSave = async () => {
     if (!selected) return;
+
+    // Перевірка конфлікту часу при ручній зміні вікна
+    const targetWindow = form.window_id ? parseInt(form.window_id, 10) : null;
+    const targetDate = form.appointment_time_local || selected.appointment_time;
+    if (targetWindow && targetDate) {
+      try {
+        const rows = await fetchWindowWaiting(targetWindow);
+        const targetMs = new Date(targetDate).getTime();
+        const hasSame = rows.some(
+          (r) =>
+            r.id !== selected.id &&
+            !isNaN(new Date(r.appointment_time).getTime()) &&
+            new Date(r.appointment_time).getTime() === targetMs
+        );
+        if (hasSame) {
+          const timeText = new Date(targetDate).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+          const ok = window.confirm(`У вікна ${targetWindow} уже є запис на ${timeText}. Ви впевнені, що хочете перенести?`);
+          if (!ok) return;
+        }
+      } catch (err) {
+        console.warn('Не вдалося перевірити конфлікт часу при збереженні:', err);
+      }
+    }
     const payload = {
       ticket_number: form.ticket_number || null,
       question_id: form.question_id || null,
