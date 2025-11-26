@@ -141,7 +141,7 @@ const Queue = () => {
 
     const appointment = moment.tz(result.appointment_time, 'Europe/Kyiv');
     const payload = {
-      number: result.id,
+      number: result.ticket_number || result.id,
       recordDate: appointment.format('YYYY-MM-DD'),
       recordTime: appointment.format('HH:mm')
     };
@@ -189,7 +189,7 @@ const Queue = () => {
         <p>
           Час: {moment.tz(confirmation.appointment_time, 'Europe/Kyiv').format('HH:mm')}
         </p>
-        <p>Номер талону: {confirmation.id}</p>
+        <p>Номер талону: {confirmation.ticket_number || confirmation.id}</p>
 
         <button
           onClick={() => {

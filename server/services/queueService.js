@@ -245,18 +245,33 @@ async function getMaxWaitMultiplier() {
   return Number(row?.value || 4);
 }
 
+async function getNextTicketNumber(appointmentTime) {
+  const appt = moment.tz(appointmentTime, 'YYYY-MM-DD HH:mm:ss', 'Europe/Kyiv');
+  const startWeek = appt.clone().startOf('isoWeek').format('YYYY-MM-DD HH:mm:ss');
+  const endWeek = appt.clone().endOf('isoWeek').format('YYYY-MM-DD HH:mm:ss');
+
+  const row = await db.getAsync(
+    `SELECT MAX(ticket_number) AS max_num FROM queue WHERE appointment_time BETWEEN ? AND ?`,
+    [startWeek, endWeek]
+  );
+
+  return (row?.max_num || 0) + 1;
+}
+
 const createQueueRecord = async ({ question_id, question_text, appointment_time, window_id }) => {
   const status = 'waiting';
   const created_at = moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
+  const ticket_number = await getNextTicketNumber(appointment_time);
 
   const result = await db.runAsync(
-    `INSERT INTO queue (question_id, question_text, appointment_time, window_id, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [question_id, question_text || null, appointment_time, window_id, status, created_at]
+    `INSERT INTO queue (question_id, question_text, appointment_time, window_id, status, created_at, ticket_number)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [question_id, question_text || null, appointment_time, window_id, status, created_at, ticket_number]
   );
 
   return {
     id: result.lastID,
+    ticket_number,
     question_id,
     question_text: question_text || null,
     appointment_time,

@@ -3,14 +3,71 @@ const bcrypt = require('bcrypt');
 const moment = require('moment-timezone');
 const { broadcast } = require('../ws');
 
-exports.getAllEmployees = (req, res) => {
-  Employee.getAll((err, rows) => {
-    if (err) {
-      console.error('Помилка при отриманні співробітників:', err);
-      return res.status(500).json({ error: 'Помилка сервера' });
-    }
-    res.json(rows);
+const parseJsonSafe = (val, fallback) => {
+  try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
+};
+
+const computeEmployeeStatuses = async (db, employees) => {
+  const now = moment().tz('Europe/Kyiv');
+  const today = now.format('YYYY-MM-DD');
+
+  const lunchStartRow = await db.getAsync("SELECT value FROM settings WHERE key = 'lunch_start'");
+  const lunchEndRow = await db.getAsync("SELECT value FROM settings WHERE key = 'lunch_end'");
+
+  const lunchStart = lunchStartRow?.value
+    ? moment.tz(`${today} ${lunchStartRow.value}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv')
+    : null;
+  const lunchEnd = lunchEndRow?.value
+    ? moment.tz(`${today} ${lunchEndRow.value}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv')
+    : null;
+
+  const active = await db.allAsync(
+    `SELECT window_id FROM queue 
+     WHERE DATE(appointment_time) = ? AND status = 'in_progress'`,
+    [today]
+  );
+  const activeByWindow = new Set(active.filter(r => r.window_id).map(r => r.window_id));
+
+  return employees.map((emp) => {
+    const schedule = parseJsonSafe(emp.schedule, {});
+    const todaySchedule = schedule[today];
+
+    const hasSchedule = todaySchedule?.start && todaySchedule?.end;
+    const workingNow =
+      hasSchedule &&
+      now.isSameOrAfter(moment.tz(`${today} ${todaySchedule.start}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv')) &&
+      now.isBefore(moment.tz(`${today} ${todaySchedule.end}`, 'YYYY-MM-DD HH:mm', 'Europe/Kyiv'));
+
+    const inLunch =
+      workingNow &&
+      lunchStart &&
+      lunchEnd &&
+      now.isSameOrAfter(lunchStart) &&
+      now.isBefore(lunchEnd);
+
+    const servingNow = emp.window_number && activeByWindow.has(emp.window_number);
+
+    let status = 'Не працює';
+    if (workingNow) status = 'Працює';
+    if (inLunch) status = 'На обіді';
+    if (servingNow) status = 'Обслуговує';
+
+    return { ...emp, computed_status: status, status };
   });
+};
+
+exports.getAllEmployees = async (req, res) => {
+  try {
+    const db = req.app.get('db');
+    const rows = await new Promise((resolve, reject) =>
+      Employee.getAll((err, data) => (err ? reject(err) : resolve(data)))
+    );
+    const withStatuses = await computeEmployeeStatuses(db, rows);
+    res.json(withStatuses);
+  } catch (err) {
+    console.error('Помилка при отриманні співробітників:', err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
 };
 
 exports.addEmployee = async (req, res) => {

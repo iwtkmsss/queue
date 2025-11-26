@@ -8,6 +8,8 @@ router.patch('/status', queueController.updateQueueStatus);
 router.patch('/reassign', queueController.reassignQueueWindow);
 router.patch('/move-window', queueController.moveQueueToAnotherWindow);
 router.get('/stats', queueController.getQueueStats);
+router.get('/export', queueController.exportQueueRaw);
+router.patch('/:id/full', queueController.updateQueueFull);
 router.patch('/:id', queueController.updateQueueWindow);
 
 router.get('/available-times', queueController.getAvailableTimes);

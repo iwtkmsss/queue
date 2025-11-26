@@ -15,6 +15,7 @@ exports.getTodayAppointments = (req, res) => {
   const sql = `
     SELECT 
       q.id,
+      q.ticket_number,
       q.appointment_time,
       q.status,
       COALESCE(q.question_text, que.text) AS question_text,
@@ -57,7 +58,7 @@ exports.startAppointment = (req, res) => {
         return res.status(500).json({ error: 'DB error (start)' });
       }
 
-      db.get(`SELECT id, window_id FROM queue WHERE id = ?`, [id], (err2, row) => {
+      db.get(`SELECT id, window_id, ticket_number FROM queue WHERE id = ?`, [id], (err2, row) => {
         if (err2) {
           console.error('❌ DB error (fetch for TTS):', err2);
           return res.status(500).json({ error: 'DB error (fetch for TTS)' });
@@ -68,7 +69,7 @@ exports.startAppointment = (req, res) => {
           return res.status(404).json({ error: 'Queue row not found' });
         }
 
-        const queue_number = row.id;
+        const queue_number = row.ticket_number || row.id;
         const window_number = row.window_id || 1;
 
         broadcast({ type: 'queue_updated' });

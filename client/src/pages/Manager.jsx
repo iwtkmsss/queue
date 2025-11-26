@@ -58,6 +58,14 @@ const MultiSelectDropdown = ({
   const chips = selected.slice(0, 2).map(id => map.get(id)).filter(Boolean);
   const more = Math.max(selected.length - chips.length, 0);
 
+  const statusLabel = {
+    waiting: 'Очікує',
+    in_progress: 'В обслуговуванні',
+    completed: 'Завершено',
+    missed: 'Пропущено',
+    did_not_appear: 'Не з\'явився',
+  };
+
   return (
     <div className="msd" ref={ref}>
       {label && (
@@ -120,8 +128,16 @@ const Manager = () => {
   const [appointments, setAppointments] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const currentClient = appointments.find(app => app.status === 'in_progress');
+  const hasActiveClient = Boolean(currentClient);
   const [now, setNow] = useState(moment.tz('Europe/Kyiv'));
   const [serviceDuration, setServiceDuration] = useState(20);
+  const statusLabel = {
+    waiting: 'Очікує',
+    in_progress: 'В обслуговуванні',
+    completed: 'Завершено',
+    missed: 'Пропущено',
+    did_not_appear: 'Не з\'явився',
+  };
 
   // === META STATE (multi-selects + boolean) ===
   const [meta, setMeta] = useState({
@@ -387,6 +403,11 @@ const Manager = () => {
   
   
   const handleStart = async (id) => {
+    if (hasActiveClient) {
+      showError('Спочатку завершіть поточного клієнта, щоб відкрити наступного.');
+      return;
+    }
+
     try {
       const res = await fetch(`${API_URL}/appointments/${id}/start`, {
         method: 'POST',
@@ -589,8 +610,8 @@ const Manager = () => {
             </div>
             <div className="cc-info">
               <div className="cc-question">{currentClient.question_text}</div>
-              <div className="cc-meta">
-                Талон №{currentClient.id}
+            <div className="cc-meta">
+              Талон №{currentClient.ticket_number || currentClient.id}
               </div>
             </div>
           </div>
@@ -624,7 +645,7 @@ const Manager = () => {
                 })}
               </strong>
               <span>{app.question_text}</span>
-              <span className="status">{app.status}</span>
+              <span className="status">{statusLabel[app.status?.toLowerCase()] || app.status}</span>
             </li>
           ))
         )}
@@ -632,10 +653,10 @@ const Manager = () => {
       {selectedTicket && (
       <div className="modal-overlay" onClick={() => setSelectedTicket(null)}>
         <div className="modal-window" onClick={e => e.stopPropagation()}>
-          <h3>Талон №{selectedTicket.id}</h3>
+          <h3>Талон №{selectedTicket.ticket_number || selectedTicket.id}</h3>
           <p>Час: {new Date(selectedTicket.appointment_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</p>
           <p>Питання: {selectedTicket.question_text}</p>
-          <p>Статус: {selectedTicket.status}</p>
+          <p>Статус: {statusLabel[selectedTicket.status?.toLowerCase()] || selectedTicket.status}</p>
 
           {/* ФОРМА (окрема від кнопок) */}
           <div className="modal-body">
@@ -721,7 +742,11 @@ const Manager = () => {
           {/* НИЖНЯ ПАНЕЛЬ КНОПОК */}
           <div className="modal-footer">
             {selectedTicket.status?.toLowerCase() === 'waiting' && (
-              <button className="start" onClick={() => handleStart(selectedTicket.id)}>Старт</button>
+              <button
+                className="start"
+                onClick={() => handleStart(selectedTicket.id)}
+                title={hasActiveClient ? 'Завершіть поточного клієнта перед стартом нового.' : undefined}
+              >Старт</button>
             )}
             {selectedTicket.status?.toLowerCase() === 'in_progress' && (
               <button className="finish" onClick={() => handleFinish(selectedTicket.id)}>

@@ -27,6 +27,8 @@ const MainManager = ({
       .catch(() => {});
   }, []);
 
+  const isManager = (pos) => (pos || '').toLowerCase().includes('менедж');
+
   return (
     <>
       <div className="admin-form-container">
@@ -87,11 +89,15 @@ const MainManager = ({
                   <tr key={emp.id}>
                     <td>{emp.name}</td>
                     <td>{emp.position}</td>
-                    <td>
-                      <span className={`status ${getStatusColorClass(emp.status)}`}>
-                        {emp.status}
-                      </span>
-                    </td>
+                <td>
+                  {isManager(emp.position) ? (
+                    <span className={`status ${getStatusColorClass(emp.status)}`}>
+                      {emp.status || '—'}
+                    </span>
+                  ) : (
+                    <span className="status status-muted">—</span>
+                  )}
+                </td>
                     <td>{emp.window_number || '-'}</td>
                     <td>
                       {questions.length > 0 && topics.length > 0

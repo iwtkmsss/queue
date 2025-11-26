@@ -25,6 +25,7 @@
   height: calc(33.33% - 20px);
   background: #ffffff;
   border-radius: 10px;
+  border: 2px solid #6ecc9a;;
   box-shadow: 0 0 12px rgba(0,0,0,0.1);
   display: flex;
   flex-direction: column;
@@ -49,8 +50,7 @@
 .showq-time {
   font-size: 26px;
   font-weight: 500;
-  color: #003366;
-  align-self: flex-start;
+  color: #000000;
   margin-left: 10px;
 }
 
@@ -68,11 +68,12 @@
 
 .showq-empty-card {
   background: #e0e0e0;
+  border: none;
   color: #999;
 }
 
 .showq-info-card {
-  background: #003366;
+  background: #51b17e;
   color: white;
 }
 

@@ -36,8 +36,7 @@ const Admin = () => {
     const handleMessage = (event) => {
       const message = JSON.parse(event.data);
 
-      if (message.type === 'update_employees') {
-        console.log('🔔 Оновлення списку працівників');
+      if (['update_employees', 'queue_updated', 'lunch_updated'].includes(message.type)) {
         fetchEmployees();
       }
     };
@@ -144,12 +143,12 @@ const Admin = () => {
   };
 
   const getStatusColorClass = (status) => {
-    switch (status) {
-      case 'Працює': return 'practiong';
-      case 'Очікує': return 'awaiting';
-      case 'Не працює': return 'not-working';
-      default: return '';
-    }
+    const normalized = (status || '').toLowerCase();
+    if (['працює'].includes(normalized)) return 'practiong';
+    if (['обслуговує'].includes(normalized)) return 'serving';
+    if (['на обіді'].includes(normalized)) return 'lunch';
+    if (['не працює'].includes(normalized)) return 'not-working';
+    return '';
   };
 
   if (!isAuthenticated) {

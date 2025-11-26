@@ -1,75 +1,109 @@
 .admin-container {
-    padding: 12px;
-  }
-  
-  /* ----------- Форма додавання ------------ */
-  
+  padding: 16px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(111, 191, 184, 0.12), transparent 34%),
+    radial-gradient(circle at 82% 10%, rgba(255, 195, 113, 0.16), transparent 44%),
+    #f8fafc;
+  color: #0f172a;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* ----------- Головна форма авторизації ------------ */
 .admin-form {
   margin-bottom: 2rem;
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 .admin-form input,
 .admin-form select {
-  padding: 0.5rem;
+  padding: 0.65rem 0.75rem;
   font-size: 1rem;
   min-width: 200px;
+  border: 1px solid #d7dfe9;
+  border-radius: 10px;
+  background: #f8fafc;
 }
 
 .admin-form button {
-  padding: 0.5rem 1rem;
+  padding: 0.65rem 1.25rem;
   font-size: 1rem;
   cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0ea5e9, #22c55e);
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(14, 165, 233, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* ----------- Шапка з навігацією та виходом ------------ */
+.admin-form button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px rgba(34, 197, 94, 0.25);
+}
 
+/* ----------- Навігація по сторінках адмінки ------------ */
 .admin-header {
   display: flex;
   align-items: center;
-  margin-bottom: 2rem;
-  border-bottom: 1px solid #ccc;
-  padding-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .admin-nav {
   display: flex;
-  gap: 1rem;
+  gap: 12px;
   flex: 1;
   justify-content: center;
   position: relative;
+  padding: 10px;
+  background: #0f172a;
+  border-radius: 14px;
+  box-shadow: 0 16px 35px rgba(15, 23, 42, 0.25);
 }
 
 .admin-nav button {
-  background-color: #f5f5f5;
-  border: 1px solid #ccc;
-  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 10px 14px;
   cursor: pointer;
-  transition: 0.2s;
+  border-radius: 10px;
+  letter-spacing: 0.01em;
+  transition: background 0.2s ease, transform 0.1s ease, color 0.2s ease;
 }
 
 .admin-nav button:hover {
-  background-color: #e0e0e0;
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.admin-nav button:focus {
+  outline: 2px solid #38bdf8;
+  outline-offset: 2px;
 }
 
 /* ----------- Кнопка "Вийти" ------------ */
-
 .logout-btn {
-  color: rgb(255, 0, 0);
-  border-radius: 6px;
+  color: #fecdd3;
+  border-radius: 8px;
   position: absolute;
-  right: 0;
-  top: 0;
+  right: 10px;
+  top: 10px;
+  background: rgba(248, 113, 113, 0.18);
 }
 
 .logout-btn:hover {
-  background-color: #ffcccc;
+  background: rgba(248, 113, 113, 0.3);
 }
 
-/* ----------- Список працівників ------------ */
-  
+/* ----------- Список співробітників ------------ */
 .employee-list {
   list-style: none;
   padding: 0;
@@ -80,51 +114,90 @@
 }
 
 .admin-form-container {
-  justify-items: center;
-  border-bottom: 1px solid #ccc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
 }
 
-.employee-list-container > h3{
+.employee-list-container > h3 {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 1.1rem;
 }
 
 .employee-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
 .employee-table th,
 .employee-table td {
-  padding: 0.5rem;
+  padding: 10px 12px;
   text-align: left;
-  border: 1px solid #ddd;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .employee-table th {
-  background-color: #f4f4f4;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.employee-table tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.employee-table tr:hover td {
+  background: #f1f5f9;
 }
 
 .status {
-  padding: 0.5rem;
-  border-radius: 4px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.status.status-muted {
+  background: transparent;
+  color: #94a3b8;
+  padding: 0;
 }
 
 .status.practiong {
-  background-color: green;
-  color: white;
+  background-color: #22c55e;
+  color: #0f172a;
 }
 
 .status.awaiting {
-  background-color: orange;
-  color: white;
+  background-color: #f59e0b;
+  color: #0f172a;
+}
+
+.status.serving {
+  background-color: #2563eb;
+  color: #f8fafc;
+}
+
+.status.lunch {
+  background-color: #f97316;
+  color: #fff7ed;
 }
 
 .status.not-working {
-  background-color: red;
-  color: white;
+  background-color: #e11d48;
+  color: #fff1f2;
 }
 
 .loading-btn {
@@ -141,47 +214,46 @@
 }
 
 .reload-button {
-  padding: 8px 16px;;
-  border-radius: 8px;
-  background-color: #007bff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #0ea5e9, #22c55e);
   color: #fff;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 10px;
-  transition: background-color 0.3s ease;
+  margin: 10px 0;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
 }
 
 .reload-button:disabled {
-  background-color: #6c757d;
+  background: #94a3b8;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+.reload-button:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
 
 .spinner {
   width: 18px;
   height: 18px;
   border: 3px solid #fff;
-  border-top: 3px solid #007bff;
+  border-top: 3px solid #0f172a;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 .up-list {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
   align-items: center;
   gap: 10px;
 }
-
-.up-list > h3 {
-  margin: 0;
-}
-

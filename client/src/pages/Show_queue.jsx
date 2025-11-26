@@ -203,7 +203,7 @@ const ShowQueue = () => {
         </div>
 
         {queue.map((item, index) => {
-          const number = item.queue_number || item.id;
+          const number = item.ticket_number || item.queue_number || item.id;
           return (
             <div
               key={item.id || index}
