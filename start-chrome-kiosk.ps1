@@ -34,7 +34,7 @@ function Start-ChromeKiosk {
     New-Item -ItemType Directory -Force -Path $userDataDir | Out-Null
   }
 
-  $args = @(
+  $chromeArgs = @(
     "--kiosk"
     "--new-window"
     "--user-data-dir=""$userDataDir"""
@@ -49,7 +49,7 @@ function Start-ChromeKiosk {
     "--app=$url"
   )
 
-  Start-Process -FilePath $chromePath -ArgumentList $args -WindowStyle Hidden
+  Start-Process -FilePath $chromePath -ArgumentList $chromeArgs -WindowStyle Hidden
 }
 
 # Launch on the first two monitors with distinct URLs.
