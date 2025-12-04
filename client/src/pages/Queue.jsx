@@ -141,9 +141,10 @@ const Queue = () => {
 
     const appointment = moment.tz(result.appointment_time, 'Europe/Kyiv');
     const payload = {
-      number: result.ticket_number || result.id,
-      recordDate: appointment.format('YYYY-MM-DD'),
-      recordTime: appointment.format('HH:mm')
+      ticketNumber: String(result.ticket_number || result.id),
+      windowNumber: selectedWindow,
+      questionText: question_text || selectedQuestion?.text || '',
+      dateTime: appointment.format('YYYY-MM-DD HH:mm')
     };
 
     try {
@@ -151,7 +152,7 @@ const Queue = () => {
         console.error('VITE_PRINTER_URL не задано — друк пропущено');
         return;
       }
-      const pr = await fetch(`${PRINTER_URL}/print-ticket`, {
+      const pr = await fetch(`${PRINTER_URL}/print/ticket`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
