@@ -12,6 +12,7 @@ const statusClassMap = {
   in_progress: 'status-inprogress',
   completed: 'status-completed',
   missed: 'status-missed',
+  alarm_missed: 'status-alarm',
   did_not_appear: 'status-didnotappear'
 };
 

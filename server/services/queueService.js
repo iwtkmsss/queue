@@ -1,5 +1,6 @@
 const db = require('../database');
 const moment = require('moment-timezone');
+const scheduleService = require('./scheduleService');
 
 
 // ==============================
@@ -116,16 +117,21 @@ async function getServiceDuration() {
 
 async function getEmployeesForQuestion(questionId, date) {
   const rows = await db.allAsync(`SELECT * FROM employees`);
-  const filtered = rows
-    .map(e => {
-      return {
-        ...e,
-        schedule: JSON.parse(e.schedule || '{}'),
-        topics: JSON.parse(e.topics || '[]')
-      };
-    })
-    .filter(e => e.topics.includes(questionId) && e.schedule[date]);
-  return filtered;
+  const enriched = rows
+    .map(e => ({
+      ...e,
+      topics: JSON.parse(e.topics || '[]')
+    }))
+    .filter(e => e.topics.includes(questionId));
+
+  const scheduleMap = await scheduleService.getSchedulesForEmployees(enriched, date);
+
+  return enriched
+    .map(e => ({
+      ...e,
+      scheduleForDate: scheduleMap.get(e.id) || null,
+    }))
+    .filter(e => e.scheduleForDate && e.scheduleForDate.start && e.scheduleForDate.end);
 }
 
 async function getLastServiceTimes(employees, date) {
@@ -156,7 +162,7 @@ async function getFreeTimeSlotsForEmployee(employee, date, duration) {
   );
 
   // 2️⃣ Графік дня
-  const daySchedule = employee.schedule[date];
+  const daySchedule = employee.scheduleForDate;
   if (!daySchedule || !daySchedule.start || !daySchedule.end) {
     return [];
   }
@@ -228,10 +234,19 @@ const getAvailableDates = async (questionId) => {
 
     const dateStr = d.toISOString().split('T')[0];
 
-    const hasEmployee = allEmployees.some((e) => {
-      const schedule = JSON.parse(e.schedule || '{}');
-      const topics = JSON.parse(e.topics || '[]');
-      return topics.includes(questionId) && schedule[dateStr];
+    const withTopic = allEmployees
+      .map((e) => ({
+        ...e,
+        topics: JSON.parse(e.topics || '[]'),
+      }))
+      .filter((e) => e.topics.includes(questionId));
+
+    if (!withTopic.length) continue;
+
+    const scheduleMap = await scheduleService.getSchedulesForEmployees(withTopic, dateStr);
+    const hasEmployee = withTopic.some((e) => {
+      const s = scheduleMap.get(e.id);
+      return s && s.start && s.end;
     });
 
     if (hasEmployee) dates.push(dateStr);

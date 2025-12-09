@@ -2,14 +2,12 @@ const Employee = require('../models/Employee');
 const bcrypt = require('bcrypt');
 const moment = require('moment-timezone');
 const { broadcast } = require('../ws');
-
-const parseJsonSafe = (val, fallback) => {
-  try { return val ? JSON.parse(val) : fallback; } catch { return fallback; }
-};
+const scheduleService = require('../services/scheduleService');
 
 const computeEmployeeStatuses = async (db, employees) => {
   const now = moment().tz('Europe/Kyiv');
   const today = now.format('YYYY-MM-DD');
+  const scheduleMap = await scheduleService.getSchedulesForEmployees(employees, today);
 
   const lunchStartRow = await db.getAsync("SELECT value FROM settings WHERE key = 'lunch_start'");
   const lunchEndRow = await db.getAsync("SELECT value FROM settings WHERE key = 'lunch_end'");
@@ -29,8 +27,7 @@ const computeEmployeeStatuses = async (db, employees) => {
   const activeByWindow = new Set(active.filter(r => r.window_id).map(r => r.window_id));
 
   return employees.map((emp) => {
-    const schedule = parseJsonSafe(emp.schedule, {});
-    const todaySchedule = schedule[today];
+    const todaySchedule = scheduleMap.get(emp.id) || null;
 
     const hasSchedule = todaySchedule?.start && todaySchedule?.end;
     const workingNow =
@@ -108,20 +105,19 @@ exports.updateStatus = (req, res) => {
 
 exports.updateEmployee = (req, res) => {
   const { id } = req.params;
-  const { window_number, topics, schedule, priority } = req.body;
+  const { window_number, topics, priority } = req.body;
 
   if (!id) return res.status(400).json({ error: 'Не передано ID' });
 
   const query = `
     UPDATE employees
-    SET window_number = ?, topics = ?, schedule = ?, priority = ?
+    SET window_number = ?, topics = ?, priority = ?
     WHERE id = ?
   `;
 
   const values = [
     window_number || null,
     JSON.stringify(topics || []),
-    JSON.stringify(schedule || {}),
     priority || 0,
     id,
   ];

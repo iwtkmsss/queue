@@ -6,10 +6,10 @@ const dbPath = path.resolve(__dirname, 'db.sqlite');
 function createDb() {
   const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-      console.error('❌ Помилка підключення до SQLite:', err.message);
+      console.error('SQLite connection error:', err.message);
       throw err;
     }
-    console.log('✅ Підключено до SQLite');
+    console.log('SQLite connected');
   });
   return db;
 }
@@ -25,7 +25,7 @@ async function ensureTables(db) {
       name TEXT NOT NULL,
       position TEXT NOT NULL,
       password TEXT NOT NULL,
-      status TEXT DEFAULT 'Не працює',
+      status TEXT DEFAULT 'inactive',
       created_at DATETIME NOT NULL,
       window_number INTEGER,
       topics TEXT,
@@ -52,6 +52,18 @@ async function ensureTables(db) {
       status TEXT NOT NULL DEFAULT 'waiting',
       created_at TEXT NOT NULL
     )`,
+    `
+    CREATE TABLE IF NOT EXISTS work_schedules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      employee_id INTEGER NOT NULL,
+      week_start DATE NOT NULL,
+      data TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+      created_by TEXT,
+      note TEXT,
+      supersedes_id INTEGER
+    )`
   ];
 
   for (const sql of tables) {
@@ -74,7 +86,6 @@ async function ensureColumns(db) {
       )
     );
 
-  // Повний перелік полів queue, які очікуємо бачити.
   const desiredQueueColumns = [
     { name: 'start_time', ddl: 'start_time TEXT' },
     { name: 'end_time', ddl: 'end_time TEXT' },
@@ -86,6 +97,7 @@ async function ensureColumns(db) {
     { name: 'personal_account', ddl: 'personal_account TEXT' },
     { name: 'question_text', ddl: 'question_text TEXT' },
     { name: 'ticket_number', ddl: 'ticket_number INTEGER' },
+    { name: 'service_zone', ddl: 'service_zone INTEGER DEFAULT 1' },
   ];
 
   const queueColumns = await getColumns('queue');
@@ -94,9 +106,17 @@ async function ensureColumns(db) {
   for (const col of desiredQueueColumns) {
     if (!existing.has(col.name)) {
       await addColumn('queue', col.ddl);
-      console.log(`✅ Додано стовпець ${col.name} до queue`);
+      console.log(`Added column ${col.name} to queue`);
     }
   }
+}
+
+async function ensureIndexes(db) {
+  const run = (sql) =>
+    new Promise((resolve, reject) => db.run(sql, (err) => (err ? reject(err) : resolve())));
+
+  await run(`CREATE INDEX IF NOT EXISTS idx_work_schedules_emp_week ON work_schedules(employee_id, week_start)`);
+  await run(`CREATE INDEX IF NOT EXISTS idx_work_schedules_status ON work_schedules(status)`);
 }
 
 function promisifyDb(db) {
@@ -121,12 +141,12 @@ function promisifyDb(db) {
   return db;
 }
 
-// Ініціалізація
 const db = createDb();
 ensureTables(db)
   .then(() => ensureColumns(db))
+  .then(() => ensureIndexes(db))
   .catch((err) => {
-    console.error('❌ Помилка ініціалізації БД:', err.message || err);
+    console.error('DB init error:', err.message || err);
   });
 
 module.exports = promisifyDb(db);

@@ -454,6 +454,10 @@ exports.updateQueueFull = (req, res) => {
             : 0,
       application_types: JSON.stringify(toArray(body.application_types ?? row.application_types)),
       manager_comment: body.manager_comment ?? row.manager_comment ?? null,
+      service_zone:
+        body.service_zone === null || body.service_zone === undefined
+          ? (row.service_zone === null || row.service_zone === undefined ? 1 : row.service_zone)
+          : (body.service_zone === false || body.service_zone === 0 ? 0 : 1),
     };
 
     const sql = `
@@ -471,7 +475,8 @@ exports.updateQueueFull = (req, res) => {
         extra_other_text = ?,
         application_yesno = ?,
         application_types = ?,
-        manager_comment = ?
+        manager_comment = ?,
+        service_zone = ?
       WHERE id = ?
     `;
 
@@ -492,6 +497,7 @@ exports.updateQueueFull = (req, res) => {
         next.application_yesno,
         next.application_types,
         next.manager_comment,
+        next.service_zone,
         id
       ],
       (e) => {

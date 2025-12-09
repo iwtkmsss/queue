@@ -179,7 +179,13 @@
     background-color: #60a5fa;
     color: white;
   }
-  
+
+  .error-text {
+    color: #ef4444;
+    margin-top: 8px;
+    font-weight: 600;
+  }
+
   .modal-section label {
     display: flex;
     align-items: center;

@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./database'); 
-const scheduleDailyCleanup = require('./utils/cleanOldSchedules');
 const { deferWaitingClientsEveryMinute } = require('./utils/alarmDeferrer');
 
 // Імпорти роутів
@@ -11,6 +10,7 @@ const questionsRouter = require('./routes/questions');
 const queueRouter = require('./routes/queue');
 const settingsRouter = require('./routes/settings');
 const appointmentsRouter = require('./routes/appointments');
+const schedulesRouter = require('./routes/schedules');
 
 // Імпорт WebSocket
 const { initWebSocket } = require('./ws');
@@ -30,6 +30,7 @@ app.use('/auth', authRouter);
 app.use('/questions', questionsRouter);
 app.use('/queue', queueRouter);
 app.use('/appointments', appointmentsRouter);
+app.use('/schedules', schedulesRouter);
 
 const PORT = process.env.PORT || 5000;
 const HOST = "127.0.0.1";
@@ -43,6 +44,5 @@ const server = app.listen(PORT, HOST, () => {
 initWebSocket(server);
 
 deferWaitingClientsEveryMinute();
-scheduleDailyCleanup();
 
 module.exports = app;

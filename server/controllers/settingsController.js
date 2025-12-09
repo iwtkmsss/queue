@@ -89,19 +89,39 @@ exports.getLunchSettings = (req, res) => {
 // Очікує тіло:
 // { start: "13:00", end: "13:30" }
 exports.setLunchSettings = (req, res) => {
-  let { start, end } = req.body;
+  let { start, end } = req.body || {};
 
-  // Перевірка типів
-  if (typeof start !== 'string' || typeof end !== 'string') {
+  start = typeof start === 'string' ? start.trim() : '';
+  end = typeof end === 'string' ? end.trim() : '';
+
+  // Дозволяємо очистити обід (обидва порожні).
+  if (!start && !end) {
+    settingsService.setSetting('lunch_start', null, (err) => {
+      if (err) {
+        console.error('❌ Помилка збереження lunch_start (clear) в settings:', err);
+        return res.status(500).json({ error: 'Помилка сервера при збереженні lunch_start' });
+      }
+
+      settingsService.setSetting('lunch_end', null, (err2) => {
+        if (err2) {
+          console.error('❌ Помилка збереження lunch_end (clear) в settings:', err2);
+          return res.status(500).json({ error: 'Помилка сервера при збереженні lunch_end' });
+        }
+
+        broadcast({ type: 'lunch_updated', start: null, end: null });
+        return res.json({ success: true });
+      });
+    });
+    return;
+  }
+
+  // Якщо заповнюємо — мають бути обидва поля
+  if (!start || !end) {
     return res.status(400).json({
-      error: 'Поля start та end мають бути рядками у форматі HH:MM',
+      error: 'Вкажіть одночасно початок та кінець або залиште обидва порожніми.',
     });
   }
 
-  start = start.trim();
-  end = end.trim();
-
-  // Парсимо в хвилини
   const startMinutes = parseTimeToMinutes(start);
   const endMinutes = parseTimeToMinutes(end);
 
@@ -117,7 +137,6 @@ exports.setLunchSettings = (req, res) => {
     });
   }
 
-  // Спочатку зберігаємо lunch_start, потім lunch_end
   settingsService.setSetting('lunch_start', start, (err) => {
     if (err) {
       console.error('❌ Помилка збереження lunch_start в settings:', err);
@@ -130,7 +149,6 @@ exports.setLunchSettings = (req, res) => {
         return res.status(500).json({ error: 'Помилка сервера при збереженні lunch_end' });
       }
 
-      // Можемо повідомити всі фронтенди через WebSocket
       broadcast({
         type: 'lunch_updated',
         start,

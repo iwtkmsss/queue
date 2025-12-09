@@ -99,6 +99,7 @@ const statusClassMap = {
   in_progress: 'status-inprogress',
   completed: 'status-completed',
   missed: 'status-missed',
+  alarm_missed: 'status-alarm',
   did_not_appear: 'status-didnotappear'
 };
 
@@ -107,6 +108,7 @@ const statusLabelMap = {
   in_progress: 'В обслуговуванні',
   completed: 'Завершено',
   missed: 'Пропущено',
+  alarm_missed: 'Пропущено (тривога)',
   did_not_appear: "Не з'явився"
 };
 
@@ -317,6 +319,7 @@ const QueueManager = () => {
       application_yesno: item.application_yesno === null || item.application_yesno === undefined ? '' : item.application_yesno ? '1' : '0',
       extra_actions: tryParseArray(item.extra_actions),
       application_types: tryParseArray(item.application_types),
+      service_zone: item.service_zone === null || item.service_zone === undefined ? true : !!item.service_zone,
     });
   };
 
@@ -360,6 +363,7 @@ const QueueManager = () => {
       application_yesno: form.application_yesno === '' ? null : form.application_yesno === '1',
       application_types: Array.isArray(form.application_types) ? form.application_types : [],
       manager_comment: form.manager_comment || null,
+      service_zone: form.service_zone === false || form.service_zone === 0 || form.service_zone === '0' ? 0 : 1,
     };
 
     try {
@@ -580,6 +584,17 @@ const QueueManager = () => {
                   value={form.personal_account || ''}
                   onChange={(e) => setForm({ ...form, personal_account: e.target.value })}
                 />
+              </label>
+
+              <label>Зона обслуговування
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <input
+                    type="checkbox"
+                    checked={form.service_zone === undefined || form.service_zone === null ? true : !!form.service_zone}
+                    onChange={(e) => setForm({ ...form, service_zone: e.target.checked ? 1 : 0 })}
+                  />
+                  <span>{form.service_zone === 0 ? 'Не наша' : 'Наша'}</span>
+                </label>
               </label>
 
               <div className="full-span">

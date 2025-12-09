@@ -2,6 +2,7 @@
 .status-inprogress { background-color: #7bc6ff; }
 .status-completed { background-color: #7dffb3; }
 .status-missed { background-color: #ff7881; }
+.status-alarm { background-color: #ffb347; }
 .status-didnotappear { background-color: #937dff; }
 
 .queue-manager {

@@ -4,13 +4,22 @@ const { broadcast } = require('../ws');
 // Отримання записів на сьогодні
 exports.getTodayAppointments = (req, res) => {
   const db = req.app.get('db');
-  const { window } = req.query;
+  const { window, date } = req.query;
 
   if (!window) {
     return res.status(400).json({ error: 'Не вказано номер вікна' });
   }
 
-  const today = moment().tz('Europe/Kiev').format('YYYY-MM-DD');
+  const dayStr = typeof date === 'string' && date.trim() ? date.trim() : null;
+  const dayMoment = dayStr
+    ? moment.tz(dayStr, 'YYYY-MM-DD', true, 'Europe/Kyiv')
+    : moment().tz('Europe/Kyiv');
+
+  if (!dayMoment.isValid()) {
+    return res.status(400).json({ error: 'Невірний формат дати. Використовуйте YYYY-MM-DD.' });
+  }
+
+  const targetDate = dayMoment.format('YYYY-MM-DD');
 
   const sql = `
     SELECT 
@@ -24,7 +33,8 @@ exports.getTodayAppointments = (req, res) => {
       q.extra_other_text,
       q.application_yesno,
       q.application_types,
-      q.manager_comment
+      q.manager_comment,
+      q.service_zone
     FROM queue q
     LEFT JOIN questions que ON q.question_id = que.id
     WHERE DATE(q.appointment_time) = ?
@@ -33,7 +43,7 @@ exports.getTodayAppointments = (req, res) => {
   `;
 
 
-  db.all(sql, [today, window], (err, rows) => {
+  db.all(sql, [targetDate, window], (err, rows) => {
     if (err) {
       console.error('❌ Помилка отримання записів із queue:', err);
       return res.status(500).json({ error: 'Помилка сервера при отриманні записів' });
@@ -207,7 +217,8 @@ exports.updateMetaAppointment = (req, res) => {
     extra_other_text = '',
     application_yesno = null,
     application_types = [],
-    manager_comment = ''
+    manager_comment = '',
+    service_zone = true
   } = req.body || {};
 
   // м'яка нормалізація форматів
@@ -222,6 +233,13 @@ exports.updateMetaAppointment = (req, res) => {
     return [];
   };
 
+  const normalizedServiceZone = (() => {
+    const s = service_zone;
+    if (s === null || s === undefined) return 1;
+    const str = String(s).toLowerCase();
+    return (s === false || s === 0 || str === '0' || str === 'false') ? 0 : 1;
+  })();
+
   const sql = `
     UPDATE queue SET
       personal_account   = ?,
@@ -229,7 +247,8 @@ exports.updateMetaAppointment = (req, res) => {
       extra_other_text   = ?,
       application_yesno  = ?,
       application_types  = ?,
-      manager_comment    = ?
+      manager_comment    = ?,
+      service_zone       = ?
     WHERE id = ?
   `;
 
@@ -242,6 +261,7 @@ exports.updateMetaAppointment = (req, res) => {
       application_yesno === null ? null : (application_yesno ? 1 : 0),
       (application_yesno ? JSON.stringify(toArray(application_types)) : null),
       String(manager_comment || '').trim() || null,
+      normalizedServiceZone,
       id
     ],
     (err) => {

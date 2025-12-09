@@ -17,6 +17,7 @@ const STATUS_LABEL = {
   in_progress: 'В обслуговуванні',
   completed: 'Завершено',
   missed: 'Пропущено',
+  alarm_missed: 'Пропущено (тривога)',
   did_not_appear: "Не з'явився",
 };
 
@@ -37,6 +38,7 @@ const EXPORT_FIELDS = [
   { key: 'application_yesno', label: 'Заява (так/ні)' },
   { key: 'application_types', label: 'Типи заяв' },
   { key: 'manager_comment', label: 'Коментар менеджера' },
+  { key: 'service_zone', label: 'Зона обслуговування' },
 ];
 
 const Statistics = () => {
@@ -144,6 +146,7 @@ const Statistics = () => {
 
   const formatValueForExport = (key, val) => {
     if (key === 'status') return STATUS_LABEL[val] || val || '';
+    if (key === 'service_zone') return (val === 0 || val === '0' || val === false) ? 'Не наша' : 'Наша';
     if (key === 'application_yesno') {
       if (val === null || val === undefined) return '';
       return val ? 'Так' : 'Ні';

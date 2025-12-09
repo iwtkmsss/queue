@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import './Home.css';
 
 const pages = [
-  { name: 'Manager', path: '/manager' },
-  { name: 'Queue', path: '/queue' },
-  { name: 'Admin', path: '/admin' },
-  { name: 'Dispatcher', path: '/dispatcher' },
-  { name: 'ShowQueue ', path: '/show' },
+  { name: 'Менеджер', path: '/manager' },
+  { name: 'Черга', path: '/queue' },
+  { name: 'Адмін', path: '/admin' },
+  { name: 'Диспетчер', path: '/dispatcher' },
+  { name: 'Показ черги', path: '/show' },
 ];
 
 const Menu = () => {

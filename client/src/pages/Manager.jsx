@@ -63,6 +63,7 @@ const MultiSelectDropdown = ({
     in_progress: 'В обслуговуванні',
     completed: 'Завершено',
     missed: 'Пропущено',
+    alarm_missed: 'Пропущено (тривога)',
     did_not_appear: 'Не з\'явився',
   };
 
@@ -124,6 +125,7 @@ const Manager = () => {
   });   
   const [showWarning, setShowWarning] = useState(false);
   const appointmentsRef = useRef([]);
+  const todayAppointmentsRef = useRef([]);
 
   const [appointments, setAppointments] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -131,11 +133,15 @@ const Manager = () => {
   const hasActiveClient = Boolean(currentClient);
   const [now, setNow] = useState(moment.tz('Europe/Kyiv'));
   const [serviceDuration, setServiceDuration] = useState(20);
+  const todayStr = moment().tz('Europe/Kyiv').format('YYYY-MM-DD');
+  const [selectedDate, setSelectedDate] = useState(todayStr);
+  const [attentionPrompt, setAttentionPrompt] = useState(null);
   const statusLabel = {
     waiting: 'Очікує',
     in_progress: 'В обслуговуванні',
     completed: 'Завершено',
     missed: 'Пропущено',
+    alarm_missed: 'Пропущено (тривога)',
     did_not_appear: 'Не з\'явився',
   };
 
@@ -147,6 +153,7 @@ const Manager = () => {
     application_yesno: null,  // true/false
     application_types: [],    // масив id
     manager_comment: '',
+    service_zone: true,
   });
 
   const [options, setOptions] = useState({
@@ -154,23 +161,57 @@ const Manager = () => {
     application_types: [],    // {id,label}
   });
 
+  const isTodaySelected = selectedDate === todayStr;
   const [metaSaving, setMetaSaving] = useState(false);
   const saveTimer = useRef(null);
 
   const socket = useContext(WebSocketContext);
+  const canNotifyRef = useRef(false);
+  const lastNotifyRef = useRef({ next: null, long: {} });
+  const lastAlertRef = useRef({});
+  const titleBlinkRef = useRef(null);
+  const originalTitleRef = useRef(typeof document !== 'undefined' ? document.title : '');
+  const swRegRef = useRef(null);
 
   const fetchAppointments = async () => {
+    if (!employee?.window_number) return;
     try {
-      const res = await fetch(`${API_URL}/appointments/today?window=${employee.window_number}`);
+      const params = new URLSearchParams({
+        window: employee.window_number,
+        date: selectedDate,
+      });
+      const res = await fetch(`${API_URL}/appointments/today?${params.toString()}`);
       const data = await res.json();
       if (!Array.isArray(data)) {
         showError('Помилка отримання черги');
         return;
       }
       setAppointments(data);
+      if (selectedDate === todayStr) {
+        todayAppointmentsRef.current = data;
+      }
     } catch (err) {
       console.error(err);
       showError('Помилка сервера');
+    }
+  };
+
+  const fetchTodayAppointments = async () => {
+    if (!employee?.window_number) return;
+    try {
+      const params = new URLSearchParams({
+        window: employee.window_number,
+        date: todayStr,
+      });
+      const res = await fetch(`${API_URL}/appointments/today?${params.toString()}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) return;
+      todayAppointmentsRef.current = data;
+      if (selectedDate === todayStr) {
+        setAppointments(data);
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -267,6 +308,102 @@ const Manager = () => {
     appointmentsRef.current = appointments;
   }, [appointments]);
 
+  // Ask for Web Notification permission once.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      canNotifyRef.current = true;
+      return;
+    }
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then((perm) => {
+        canNotifyRef.current = perm === 'granted';
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Try register service worker for more reliable notifications (works on https/localhost).
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/manager-notify-sw.js').then((reg) => {
+      swRegRef.current = reg;
+    }).catch(() => {});
+  }, []);
+
+  const fireNotification = (title, body, tag) => {
+    if (!canNotifyRef.current || typeof window === 'undefined' || !('Notification' in window)) return;
+    try {
+      // Prefer service worker to force OS toast even если вкладка не активна.
+      if (swRegRef.current && swRegRef.current.showNotification) {
+        swRegRef.current.showNotification(title, { body, tag, renotify: true });
+      } else {
+        new Notification(title, { body, tag, renotify: true });
+      }
+    } catch (e) {
+      // Ignore Notification errors (permissions or platform issues).
+    }
+  };
+
+  const stopTitleBlink = () => {
+    if (titleBlinkRef.current) {
+      clearInterval(titleBlinkRef.current);
+      titleBlinkRef.current = null;
+    }
+    if (typeof document !== 'undefined' && originalTitleRef.current) {
+      document.title = originalTitleRef.current;
+    }
+  };
+
+  const startTitleBlink = (message) => {
+    if (typeof document === 'undefined') return;
+    originalTitleRef.current = document.title || 'Черга';
+    stopTitleBlink();
+    let toggle = false;
+    titleBlinkRef.current = setInterval(() => {
+      toggle = !toggle;
+      document.title = toggle ? message : originalTitleRef.current;
+    }, 1200);
+    setTimeout(stopTitleBlink, 12000);
+  };
+
+  const acknowledgePrompt = () => {
+    setAttentionPrompt(null);
+    stopTitleBlink();
+  };
+
+  const playBeep = () => {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.6);
+    } catch (e) {
+      // Audio init might fail if user blocked; ignore.
+    }
+  };
+
+  const notifyAttention = (title, body, tag) => {
+    fireNotification(title, body, tag);
+    startTitleBlink(title);
+    playBeep();
+    const now = Date.now();
+    const last = lastAlertRef.current[tag] || 0;
+    const ALERT_REPEAT_MS = 120000; // не чаще раза в 2 минуты на тот же тег
+    if (now - last > ALERT_REPEAT_MS) {
+      lastAlertRef.current[tag] = now;
+      setAttentionPrompt({ title, body, tag });
+    }
+  };
+
   useEffect(() => {
     const fetchServiceDuration = async () => {
       try {
@@ -310,6 +447,7 @@ const Manager = () => {
         application_yesno: null,
         application_types: [],
         manager_comment: '',
+        service_zone: true,
       });
       return;
     }
@@ -323,6 +461,10 @@ const Manager = () => {
           : !!selectedTicket.application_yesno,
       application_types: parseArray(selectedTicket.application_types),
       manager_comment: selectedTicket.manager_comment || '',
+      service_zone:
+        selectedTicket.service_zone === null || selectedTicket.service_zone === undefined
+          ? true
+          : !!selectedTicket.service_zone,
     });
   }, [selectedTicket]);
 
@@ -330,6 +472,14 @@ const Manager = () => {
     if (!employee) return;
     fetchAppointments();
     const interval = setInterval(fetchAppointments, 30000);
+    return () => clearInterval(interval);
+  }, [employee, selectedDate]);
+
+  // Окремо тримаємо "сьогодні" для нагадувань, навіть якщо переглядаємо інший день.
+  useEffect(() => {
+    if (!employee) return;
+    fetchTodayAppointments();
+    const interval = setInterval(fetchTodayAppointments, 30000);
     return () => clearInterval(interval);
   }, [employee]);
 
@@ -341,18 +491,19 @@ const Manager = () => {
 
       if (message.type === 'queue_updated') {
         fetchAppointments();
+        fetchTodayAppointments();
       }
     };
 
     socket.addEventListener('message', handleMessage);
     return () => socket.removeEventListener('message', handleMessage);
-  }, [socket]);
+  }, [socket, selectedDate, employee]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const now = new Date();
 
-      const overdue = appointmentsRef.current.filter(entry => {
+      const overdue = todayAppointmentsRef.current.filter(entry => {
         const isWaiting = entry.status === 'waiting';
         const noStart = !entry.start_time || entry.start_time === 'null' || entry.start_time === '';
         const timePassed = new Date(entry.appointment_time).getTime() + 60000 < now.getTime();
@@ -370,35 +521,98 @@ const Manager = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Reminder: notify when есть ожидающий и нет активного.
+  useEffect(() => {
+    const CHECK_MS = 20000;
+    const REPEAT_MS = 120000;
+
+    const tick = () => {
+      const list = todayAppointmentsRef.current || [];
+      const inProgress = list.find((entry) => entry.status?.toLowerCase() === 'in_progress');
+      if (inProgress) return;
+
+      const waiting = list
+        .filter((entry) => entry.status?.toLowerCase() === 'waiting')
+        .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time));
+
+      if (!waiting.length) return;
+
+      const next = waiting[0];
+      const ticket = next.ticket_number || next.id;
+      const now = Date.now();
+      const prev = lastNotifyRef.current.next;
+      const tag = `next-${ticket}`;
+
+      if (prev && prev.tag === tag && now - prev.at < REPEAT_MS) return;
+
+      notifyAttention('Чекає клієнт', `Почніть талон №${ticket}`, tag);
+      lastNotifyRef.current.next = { tag, at: now };
+    };
+
+    const id = setInterval(tick, CHECK_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  // Reminder: notify when in_progress слишком долго.
+  useEffect(() => {
+    const CHECK_MS = 20000;
+    const REPEAT_MS = 180000;
+    const GRACE_MIN = 5;
+
+    const tick = () => {
+      const list = todayAppointmentsRef.current || [];
+      const current = list.find((entry) => entry.status?.toLowerCase() === 'in_progress');
+      if (!current || !current.start_time) return;
+
+      const started = moment(current.start_time);
+      if (!started.isValid()) return;
+
+      const elapsedMin = moment().diff(started, 'minutes');
+      const threshold = Number(serviceDuration || 0) + GRACE_MIN;
+
+      if (elapsedMin < threshold) return;
+
+      const ticket = current.ticket_number || current.id;
+      const tag = `long-${ticket}`;
+      const now = Date.now();
+      const last = (lastNotifyRef.current.long || {})[tag] || 0;
+
+      if (now - last < REPEAT_MS) return;
+
+      notifyAttention('Завершіть клієнта', `Талон №${ticket} в роботі ${elapsedMin} хв.`, tag);
+      lastNotifyRef.current.long = { ...(lastNotifyRef.current.long || {}), [tag]: now };
+    };
+
+    const id = setInterval(tick, CHECK_MS);
+    return () => clearInterval(id);
+  }, [serviceDuration, isTodaySelected]);
+
   useEffect(() => {
     const checkAndSkip = () => {
       const now = moment.tz('Europe/Kyiv');
+      const expired = (todayAppointmentsRef.current || []).filter(app =>
+        app.status?.toLowerCase() === 'waiting' &&
+        moment(app.appointment_time).isBefore(now.clone().subtract(serviceDuration + 5, 'minutes'))
+      );
 
-      setAppointments(prev => {
-        return prev.map(app => {
-          const isExpired =
-            app.status?.toLowerCase() === 'waiting' &&
-            moment(app.appointment_time).isBefore(now.clone().subtract(serviceDuration + 5, 'minutes'));
-
-          if (isExpired) {
-            handleSkip(app.id);
-            return { ...app, status: 'missed' };
-          }
-
-          return app;
-        });
-      });
+      expired.forEach(app => handleSkip(app.id));
     };
 
     const interval = setInterval(checkAndSkip, 10000);
     checkAndSkip();
 
     return () => clearInterval(interval);
-  }, []);
+  }, [serviceDuration]);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const onFocus = () => stopTitleBlink();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, []);
   
   
@@ -573,6 +787,18 @@ const Manager = () => {
 
   return (
     <div className="manager-container">
+      {attentionPrompt && (
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:20000,display:'flex',alignItems:'center',justifyContent:'center',padding:'16px'}}>
+          <div style={{background:'#fff',color:'#111',padding:'20px 24px',borderRadius:'12px',maxWidth:'420px',width:'100%',boxShadow:'0 18px 44px rgba(0,0,0,0.35)'}}>
+            <h3 style={{margin:'0 0 8px',fontSize:'18px'}}>{attentionPrompt.title}</h3>
+            <p style={{margin:'0 0 16px',fontSize:'14px',lineHeight:1.45}}>{attentionPrompt.body}</p>
+            <button onClick={acknowledgePrompt} style={{padding:'10px 16px',border:'none',borderRadius:'10px',background:'#2563eb',color:'#fff',fontWeight:600,cursor:'pointer',width:'100%'}}>
+              ОК
+            </button>
+          </div>
+        </div>
+      )}
+
       {showWarning && (
         <div className="warning-banner">
           ⚠️ УВАГА! Наступний споживач очікує на обслуговування.
@@ -585,6 +811,19 @@ const Manager = () => {
           <p className="manager-subtitle">
             Оператор: <span>{employee.name}</span>
           </p>
+        </div>
+
+        <div className="manager-date-picker">
+          <label htmlFor="manager-date">Дата:</label>
+          <input
+            id="manager-date"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => {
+              setSelectedDate(e.target.value || todayStr);
+              setSelectedTicket(null);
+            }}
+          />
         </div>
 
         <button
@@ -632,7 +871,8 @@ const Manager = () => {
                 if (
                 app.status?.toLowerCase() === 'completed' || 
                 app.status?.toLowerCase() === 'missed' || 
-                app.status?.toLowerCase() === 'did_not_appear') {
+                app.status?.toLowerCase() === 'did_not_appear' ||
+                app.status?.toLowerCase() === 'alarm_missed') {
                   return; 
               }
               setSelectedTicket(app);
@@ -669,6 +909,18 @@ const Manager = () => {
                   onChange={e => onMetaChange({ personal_account: e.target.value })}
                   placeholder="Введіть особовий рахунок"
                 />
+              </div>
+
+              <div className="field field-zone">
+                <label>Зона обслуговування</label>
+                <label className="checkbox-inline">
+                  <input
+                    type="checkbox"
+                    checked={meta.service_zone !== false}
+                    onChange={(e) => onMetaChange({ service_zone: e.target.checked })}
+                  />
+                  <span>{meta.service_zone !== false ? "Наша" : "Не наша"}</span>
+                </label>
               </div>
 
               <div className="field field-extra">

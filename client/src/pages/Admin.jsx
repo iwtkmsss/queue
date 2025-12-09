@@ -7,6 +7,7 @@ import QueueManager from './admin/QueueManager';
 import QuestionsManager from './admin/QuestionsManager';
 import ServiceSettings from './admin/SystemSettings';
 import Statistics from './admin/Statistics';
+import StaffTimeline from './admin/StaffTimeline';
 
 import './Admin.css';
 
@@ -181,6 +182,7 @@ const Admin = () => {
           <button onClick={() => setSection('main')}>Управління співробітниками</button>
           <button onClick={() => setSection('queue')}>Черга</button>
           <button onClick={() => setSection('stats')}>Статистика</button>
+          <button onClick={() => setSection('staff-move')}>Рух співробітників</button>
           <button onClick={() => setSection('settings')}>Налаштування</button>
           <button className="logout-btn" onClick={handleLogout}>Вийти</button>
         </div>
@@ -204,6 +206,7 @@ const Admin = () => {
       )}
       {section === 'queue' && <QueueManager />}
       {section === 'stats' && <Statistics />}
+      {section === 'staff-move' && <StaffTimeline employees={employees} />}
       {section === 'settings' && (
         <>
           <QuestionsManager />
