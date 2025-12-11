@@ -1,9 +1,10 @@
 const WebSocket = require('ws');
 
-let wss; 
+let wss;
 
 function initWebSocket(server) {
-  wss = new WebSocket.Server({ server });
+  // Explicitly bind WS to the /ws path so it matches nginx and Vite config.
+  wss = new WebSocket.Server({ server, path: '/ws' });
 
   wss.on('connection', (ws) => {
     console.log('🔌 Новий клієнт WebSocket підключився');
