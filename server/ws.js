@@ -17,10 +17,10 @@ function initWebSocket(server) {
     ws.on('close', () => {
       console.log("❌ WebSocket-з'єднання закрито");
     });
+
+    console.log('WS connection', req.socket.remoteAddress, req.url);
+    ws.on('error', (err) => console.error('WS client error', err));
   });
-  
-  console.log('WS connection', req.socket.remoteAddress, req.url);
-  ws.on('error', (err) => console.error('WS client error', err));
 }
 
 // Функція для відправки даних всім підключеним клієнтам
