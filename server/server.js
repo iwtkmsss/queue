@@ -33,7 +33,7 @@ app.use('/appointments', appointmentsRouter);
 app.use('/schedules', schedulesRouter);
 
 const PORT = process.env.PORT || 5000;
-const HOST = "127.0.0.1";
+const HOST = "0.0.0.0";
 
 // Запуск сервера
 const server = app.listen(PORT, HOST, () => {
