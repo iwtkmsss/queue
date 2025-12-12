@@ -885,7 +885,7 @@ const Manager = () => {
                   minute: '2-digit',
                 })}
               </strong>
-              <span className="question">{app.question_text}</span>
+              <span>{app.question_text}</span>
               <span className="status">{statusLabel[app.status?.toLowerCase()] || app.status}</span>
             </li>
           ))
