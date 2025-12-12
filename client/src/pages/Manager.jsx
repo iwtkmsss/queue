@@ -878,13 +878,14 @@ const Manager = () => {
               setSelectedTicket(app);
             }}
             >
+              <span className="ticket-num">№{app.ticket_number || app.id}</span>
               <strong>
                 {new Date(app.appointment_time).toLocaleTimeString('uk-UA', {
                   hour: '2-digit',
                   minute: '2-digit',
                 })}
               </strong>
-              <span>{app.question_text}</span>
+              <span className="question">{app.question_text}</span>
               <span className="status">{statusLabel[app.status?.toLowerCase()] || app.status}</span>
             </li>
           ))

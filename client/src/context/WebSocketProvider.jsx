@@ -11,6 +11,16 @@ const WS_READY = {
   OPEN: 1,
 };
 
+const getWebSocketUrl = () => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const host = window.location.host;
+  const path = '/ws';
+  return `${protocol}://${host}${path}`;
+};
+
 const getSocket = (url) => {
   if (sharedSocket && [WS_READY.CONNECTING, WS_READY.OPEN].includes(sharedSocket.readyState)) {
     return sharedSocket;
@@ -24,7 +34,7 @@ export const WebSocketProvider = ({ children, onMessage }) => {
   const suppressLogsRef = useRef(false);
 
   useEffect(() => {
-    const WS_URL = import.meta.env.VITE_WS_URL;
+    const WS_URL = getWebSocketUrl();
     const ws = getSocket(WS_URL);
     subscribers += 1;
 

@@ -181,7 +181,7 @@
 
 .ticket {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid #e5e7eb;
@@ -200,6 +200,14 @@
   box-shadow: 0 6px 14px rgba(148, 163, 184, 0.35);
 }
 
+.ticket .ticket-num {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  min-width: 66px;
+  text-align: left;
+}
+
 .ticket strong {
   font-size: 14px;
   font-weight: 600;
@@ -209,13 +217,10 @@
 }
 
 
-.ticket span {
+.ticket .question {
+  flex: 1;
   font-size: 13px;
   color: #4b5563;
-}
-
-.ticket span:nth-of-type(1) {
-  flex: 1;
 }
 
 .ticket .status {

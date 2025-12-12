@@ -14,7 +14,7 @@ const CUSTOM_FONT_PATH = 'C:/Windows/Fonts/arial.ttf';
 
 // Розмір термострічки (80мм ширина)
 const PAGE_WIDTH_MM = 80;
-const PAGE_HEIGHT_MM = 200; // висоту можна підганяти
+const PAGE_HEIGHT_MM = 90;
 const MM_TO_PT = 2.83465;
 
 const PAGE_WIDTH_PT = PAGE_WIDTH_MM * MM_TO_PT;
@@ -32,8 +32,6 @@ function drawSeparator(doc) {
     .lineTo(PAGE_WIDTH_PT - margin, y)
     .lineWidth(0.5)
     .stroke();
-
-  doc.moveDown(0.6);
 }
 
 /**
@@ -96,11 +94,13 @@ function createTicketPdf(filePath, data) {
     });
 
     doc.moveDown(0.3);
+    
     doc.fontSize(9).text('Електронна черга', {
       align: 'center',
     });
 
     drawSeparator(doc);
+    doc.moveDown(0.6);
 
     // "ТАЛОН"
     doc.fontSize(10).text('ТАЛОН', {
@@ -115,6 +115,7 @@ function createTicketPdf(filePath, data) {
     });
 
     drawSeparator(doc);
+    doc.moveDown(0.3);
 
     // Тип звернення
     doc.fontSize(9).text('Тип послуги:', {
@@ -127,36 +128,16 @@ function createTicketPdf(filePath, data) {
       align: 'center',
     });
 
-    if (extraLine) {
-      doc.moveDown(0.3);
-      doc.fontSize(9).text(extraLine, {
-        align: 'center',
-      });
-    }
-
     drawSeparator(doc);
-
-    // Якщо вікно вже відоме — виводимо
-    if (windowNumber) {
-      doc.fontSize(10).text(`Обслуговування: вікно № ${windowNumber}`, {
-        align: 'center',
-      });
-
-      doc.moveDown(0.4);
-    } else {
-      doc.fontSize(9).text('Очікуйте свого номера на табло.', {
-        align: 'center',
-      });
-
-      doc.moveDown(0.4);
-    }
+    doc.moveDown(0.6);
 
     // Дата та час
-    doc.fontSize(9).text(dateTime, {
+    doc.fontSize(12).text(dateTime, {
       align: 'center',
     });
 
     drawSeparator(doc);
+    doc.moveDown(0.6);
 
     // Низ талону — інструкція / подяка
     doc.fontSize(8).text(footerText, {
@@ -166,7 +147,7 @@ function createTicketPdf(filePath, data) {
     doc.moveDown(0.4);
     doc
       .fontSize(8)
-      .text('Будь ласка, зберігайте талон до завершення обслуговування.', {
+      .text('Під час повітряної тривоги прийом громадян не проводиться. Усі талони, що припадають на час тривоги, втрачають чинність. Дякуємо за розуміння.  ', {
         align: 'center',
       });
 
