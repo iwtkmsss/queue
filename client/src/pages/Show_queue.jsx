@@ -6,6 +6,29 @@ import { WebSocketContext } from '../context/WebSocketProvider.jsx';
 
 const WS_URL = import.meta.env.VITE_WS_URL;
 
+const AVAILABLE_AUDIO = new Set([
+  'zaprosuyemo',
+  'kliyenta_nomer',
+  'do_vikna_nomer',
+  ...Array.from({ length: 20 }, (_, i) => `${i + 1}`),
+  '30',
+  '40',
+  '50',
+  '60',
+  '70',
+  '80',
+  '90',
+  '100',
+  '200',
+  '300',
+  '400',
+  '500',
+  '600',
+  '700',
+  '800',
+  '900'
+]);
+
 const ShowQueue = () => {
   const [time, setTime] = useState('');
   const [weekday, setWeekday] = useState('');
@@ -52,10 +75,41 @@ const ShowQueue = () => {
     isPlaying.current = true;
     for (let i = 0; i < files.length; i++) {
       await new Promise((resolve) => {
-        const audio = new Audio(`/audio/${files[i]}.mp3`);
+        const filename = files[i];
+        if (!AVAILABLE_AUDIO.has(filename)) {
+          console.warn(`[audio] Файл /audio/${filename}.mp3 відсутній, пропускаю`);
+          return resolve();
+        }
+
+        const audio = new Audio(`/audio/${filename}.mp3`);
         audio.playbackRate = 1;
-        audio.onended = () => setTimeout(resolve, 300);
-        audio.play();
+
+        let finished = false;
+        const cleanup = () => {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeoutId);
+          setTimeout(resolve, 300);
+        };
+
+        audio.onended = cleanup;
+        audio.onerror = (err) => {
+          console.warn(`[audio] Помилка відтворення ${filename}.mp3`, err);
+          cleanup();
+        };
+
+        const timeoutId = setTimeout(() => {
+          console.warn(`[audio] Таймаут відтворення ${filename}.mp3, переходжу далі`);
+          cleanup();
+        }, 8000);
+
+        const playPromise = audio.play();
+        if (playPromise?.catch) {
+          playPromise.catch((err) => {
+            console.warn(`[audio] play() rejected для ${filename}.mp3`, err);
+            cleanup();
+          });
+        }
       });
     }
     isPlaying.current = false;
@@ -76,20 +130,45 @@ const ShowQueue = () => {
   const playCallAudio = (queueNumber, windowNumber) => {
     const files = ['zaprosuyemo', 'kliyenta_nomer'];
 
-    const pushNumber = (n) => {
-      if (n <= 20) {
-        files.push(`${n}`);
-      } else if (n < 100) {
+    const addFile = (name) => {
+      if (AVAILABLE_AUDIO.has(name)) {
+        files.push(name);
+      } else {
+        console.warn(`[audio] Немає файлу ${name}.mp3, пропускаю`);
+      }
+    };
+
+    const pushNumber = (num) => {
+      let n = Number(num);
+      if (!Number.isFinite(n) || n <= 0) return;
+
+      if (n >= 200) {
+        console.warn(`[audio] Число ${n} перевищує наявні озвучки, використовую останні дві цифри`);
+        n = n % 100 || 100;
+      }
+
+      if (n === 100) {
+        addFile('100');
+        return;
+      }
+
+      if (n < 100 && n > 20) {
         const tens = Math.floor(n / 10) * 10;
         const ones = n % 10;
-        if (tens) files.push(`${tens}`);
-        if (ones) files.push(`${ones}`);
-      } else {
-        const hundreds = Math.floor(n / 100) * 100;
-        const remainder = n % 100;
-        if (hundreds) files.push(`${hundreds}`);
-        if (remainder > 0) pushNumber(remainder);
+        if (tens) addFile(`${tens}`);
+        if (ones) addFile(`${ones}`);
+        return;
       }
+
+      if (n <= 20) {
+        addFile(`${n}`);
+        return;
+      }
+
+      // 101–199: "100" + решта
+      addFile('100');
+      const remainder = n - 100;
+      if (remainder > 0) pushNumber(remainder);
     };
 
     pushNumber(queueNumber);
