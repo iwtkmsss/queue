@@ -48,3 +48,133 @@
   margin-top: 10px;
   font-size: 14px;
 }
+
+.dispatcher-shell {
+  min-height: 100vh;
+  background: #f6f7fb;
+  display: flex;
+  flex-direction: column;
+}
+
+.dispatcher-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.dispatcher-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.dispatcher-tabs button {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dispatcher-tabs button.active {
+  background: linear-gradient(120deg, #6366f1, #8b5cf6);
+  color: #fff;
+  border-color: #6366f1;
+}
+
+.dispatcher-logout {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dispatcher-logout:hover {
+  background: #fecaca;
+}
+
+.dispatcher-content .queue-manager {
+  background: transparent;
+  min-height: auto;
+  padding-top: 16px;
+}
+
+.queue-live {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  padding: 16px;
+}
+
+.queue-live-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.queue-live label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.queue-live input,
+.queue-live select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #f9fafb;
+  font-size: 14px;
+}
+
+.queue-live button {
+  align-self: end;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #f59e0b, #f97316);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.queue-live button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.queue-live-hint {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.status-livequeue {
+  background-color: #ffd6a5;
+}
+
+@media (max-width: 768px) {
+  .dispatcher-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .queue-live-grid {
+    grid-template-columns: 1fr;
+  }
+}

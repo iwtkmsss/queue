@@ -273,15 +273,15 @@ async function getNextTicketNumber(appointmentTime) {
   return (row?.max_num || 0) + 1;
 }
 
-const createQueueRecord = async ({ question_id, question_text, appointment_time, window_id }) => {
-  const status = 'waiting';
+const createQueueRecord = async ({ question_id, question_text, appointment_time, window_id, status }) => {
+  const normalizedStatus = status === 'live_queue' ? 'live_queue' : 'waiting';
   const created_at = moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
   const ticket_number = await getNextTicketNumber(appointment_time);
 
   const result = await db.runAsync(
     `INSERT INTO queue (question_id, question_text, appointment_time, window_id, status, created_at, ticket_number)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [question_id, question_text || null, appointment_time, window_id, status, created_at, ticket_number]
+    [question_id, question_text || null, appointment_time, window_id, normalizedStatus, created_at, ticket_number]
   );
 
   return {
@@ -291,7 +291,7 @@ const createQueueRecord = async ({ question_id, question_text, appointment_time,
     question_text: question_text || null,
     appointment_time,
     window_id,
-    status,
+    status: normalizedStatus,
     created_at
   };
 };

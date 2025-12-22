@@ -85,13 +85,20 @@ exports.updateQueueWindow = (req, res) => {
 
 exports.createQueueRecord = async (req, res) => {
   try {
-    const { question_id, question_text, appointment_time, customer_name, window_id } = req.body;
-    if (!question_id || !appointment_time || !window_id) {
+    const { question_id, question_text, appointment_time, customer_name, window_id, status } = req.body;
+    const normalizedStatus = status === 'live_queue' ? 'live_queue' : 'waiting';
+    const appointmentSource =
+      appointment_time ||
+      (normalizedStatus === 'live_queue'
+        ? moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss')
+        : null);
+
+    if (!question_id || !appointmentSource || !window_id) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const appointmentKyivStr = moment
-      .tz(appointment_time, 'YYYY-MM-DD HH:mm:ss', 'Europe/Kyiv')
+      .tz(appointmentSource, 'YYYY-MM-DD HH:mm:ss', 'Europe/Kyiv')
       .format('YYYY-MM-DD HH:mm:ss');
 
     const ticket = await queueService.createQueueRecord({
@@ -99,7 +106,8 @@ exports.createQueueRecord = async (req, res) => {
       question_text: question_text || null,
       appointment_time: appointmentKyivStr,
       customer_name: customer_name || '—',
-      window_id
+      window_id,
+      status: normalizedStatus
     });
 
     broadcast({ type: 'queue_updated' });
