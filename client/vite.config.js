@@ -20,12 +20,12 @@ export default defineConfig({
     port: 35173,
     proxy: {
       '/api': {
-        target: DEV_API_TARGET,
+        target: API_URL,
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api/, ''), // /api/foo -> /foo
       },
       '/ws': {
-        target: DEV_WS_TARGET,
+        target: WS_URL,
         ws: true,
         changeOrigin: true,
       },

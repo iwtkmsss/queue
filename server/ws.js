@@ -6,7 +6,7 @@ function initWebSocket(server) {
   // Explicitly bind WS to the /ws path so it matches nginx and Vite config.
   wss = new WebSocket.Server({ server, path: '/ws' });
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, req) => {
     console.log('🔌 Новий клієнт WebSocket підключився');
 
     ws.on('message', (message) => {
@@ -18,7 +18,11 @@ function initWebSocket(server) {
       console.log("❌ WebSocket-з'єднання закрито");
     });
 
-    console.log('WS connection', req.socket.remoteAddress, req.url);
+    if (req && req.socket) {
+      console.log('WS connection', req.socket.remoteAddress, req.url);
+    } else {
+      console.log('WS connection');
+    }
     ws.on('error', (err) => console.error('WS client error', err));
   });
 }
