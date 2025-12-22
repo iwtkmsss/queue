@@ -5,10 +5,6 @@ import react from '@vitejs/plugin-react';
 const API_URL = 'https://line.tec4.kiev.ua/api';
 const WS_URL = 'wss://line.tec4.kiev.ua/ws';
 
-// Internal target for dev proxy (Node.js runs on this host:port in LAN).
-const DEV_API_TARGET = 'http://10.3.1.134:5000';
-const DEV_WS_TARGET = 'ws://10.3.1.134:5000';
-
 export default defineConfig({
   plugins: [react()],
   define: {
@@ -32,3 +28,4 @@ export default defineConfig({
     },
   },
 });
+
