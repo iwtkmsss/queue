@@ -878,7 +878,7 @@ const Manager = () => {
               setSelectedTicket(app);
             }}
             >
-              <span className="ticket-num">№{app.ticket_number || app.id}</span>
+	     <span className="ticket-num">№{app.ticket_number || app.id}</span>
               <strong>
                 {new Date(app.appointment_time).toLocaleTimeString('uk-UA', {
                   hour: '2-digit',
