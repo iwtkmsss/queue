@@ -4,6 +4,7 @@
 .status-missed { background-color: #ff7881; }
 .status-alarm { background-color: #ffb347; }
 .status-didnotappear { background-color: #937dff; }
+.status-livequeue { background-color: #ffd6a5; }
 
 .queue-manager {
   padding: 24px;
@@ -161,6 +162,10 @@
 .queue-table tbody tr:hover {
   transition: 150ms ease-in-out;
   background: #cccccc;
+}
+
+.queue-table tbody tr.queue-row {
+  cursor: pointer;
 }
 
 .queue-table tbody tr:last-child td {

@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useContext } from 'react';
-import './admin/QueueManager.css';
-import { useError } from '../context/ErrorContext';
-import { WebSocketContext } from '../context/WebSocketProvider';
+import moment from 'moment-timezone';
+import './QueueManager.css';
+import './LiveQueue.css';
+import { useError } from '../../context/ErrorContext';
+import { WebSocketContext } from '../../context/WebSocketProvider';
 
-// Спрощений багаторазовий селект (як у менеджері)
 const MultiSelectDropdown = ({
   label,
   options = [],
@@ -131,7 +132,14 @@ const tryParseArray = (v) => {
   return [];
 };
 
-const DispatcherQueue = () => {
+const isManagerPosition = (value) => {
+  const text = String(value || '').toLowerCase();
+  return text.includes('менеджер') || text.includes('manager');
+};
+
+const hasWindowNumber = (value) => value !== null && value !== undefined && value !== '';
+
+const LiveQueue = () => {
   const { showError } = useError();
   const socket = useContext(WebSocketContext);
 
@@ -139,22 +147,19 @@ const DispatcherQueue = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [filterWindow, setFilterWindow] = useState('');
-  const [filterQuestion, setFilterQuestion] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [sort, setSort] = useState({ field: 'appointment_time', dir: 'desc' });
-
-  const [windowFrom, setWindowFrom] = useState('');
-  const [windowTo, setWindowTo] = useState('');
-
-  const [selected, setSelected] = useState(null);
-  const [form, setForm] = useState({});
+  const [isCreating, setIsCreating] = useState(false);
 
   const [questions, setQuestions] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [createForm, setCreateForm] = useState({
+    manager_id: '',
+    question_id: '',
+    question_text: ''
+  });
+
   const [options, setOptions] = useState({ extra_actions: [], application_types: [] });
+  const [selected, setSelected] = useState(null);
+  const [editForm, setEditForm] = useState({});
 
   const formatDateTimeLocal = (str) => {
     if (!str) return '';
@@ -181,6 +186,18 @@ const DispatcherQueue = () => {
     }
   };
 
+  const fetchEmployees = async () => {
+    try {
+      const res = await fetch(`${API_URL}/employees`);
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : [];
+      const managers = rows.filter((emp) => isManagerPosition(emp.position));
+      setEmployees(managers.length ? managers : rows);
+    } catch (err) {
+      console.error('Помилка завантаження працівників:', err);
+    }
+  };
+
   const fetchOptions = async () => {
     try {
       const res = await fetch(`${API_URL}/settings/options`);
@@ -194,21 +211,17 @@ const DispatcherQueue = () => {
     }
   };
 
-  const fetchQueue = async (pageNum = 1) => {
+  const fetchLiveQueue = async (pageNum = 1) => {
     setIsLoading(true);
     try {
       const offset = (pageNum - 1) * LIMIT;
       const params = new URLSearchParams({
         limit: LIMIT,
         offset,
-        sort_field: sort.field,
-        sort_dir: sort.dir,
+        sort_field: 'appointment_time',
+        sort_dir: 'desc',
+        status: 'live_queue',
       });
-      if (fromDate) params.append('from', fromDate);
-      if (toDate) params.append('to', toDate);
-      if (filterWindow) params.append('window_id', filterWindow);
-      if (filterQuestion) params.append('question_id', filterQuestion);
-      if (filterStatus) params.append('status', filterStatus);
 
       const res = await fetch(`${API_URL}/queue?${params.toString()}`);
       const data = await res.json();
@@ -217,19 +230,9 @@ const DispatcherQueue = () => {
       setQueue(rows);
       setTotalPages(Math.max(1, Math.ceil(total / LIMIT)));
     } catch (err) {
-      console.error('Помилка завантаження черги:', err);
+      console.error('Помилка завантаження живої черги:', err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchTotalCount = async () => {
-    try {
-      const res = await fetch(`${API_URL}/queue/count`);
-      const data = await res.json();
-      setTotalPages(Math.max(1, Math.ceil((data.count || 0) / LIMIT)));
-    } catch (err) {
-      console.error('Помилка підрахунку черги:', err);
     }
   };
 
@@ -252,68 +255,58 @@ const DispatcherQueue = () => {
     }
   };
 
-  const handleBulkRedirect = async () => {
-    if (!windowFrom || !windowTo || isNaN(windowFrom) || isNaN(windowTo)) {
-      showError('Вкажіть коректні номери вікон');
+  const handleCreateLive = async () => {
+    if (!createForm.manager_id || !createForm.question_id) {
+      showError('Оберіть менеджера та питання.');
       return;
     }
 
-    const fromWin = parseInt(windowFrom, 10);
-    const toWin = parseInt(windowTo, 10);
+    const manager = employees.find((m) => String(m.id) === String(createForm.manager_id));
+    const windowId = manager?.window_number;
 
-    // Перевірка конфліктів часу у цільовому вікні
-    try {
-      const [fromRows, toRows] = await Promise.all([
-        fetchWindowWaiting(fromWin),
-        fetchWindowWaiting(toWin),
-      ]);
-
-      const toTimes = new Set(
-        toRows
-          .map((r) => new Date(r.appointment_time).getTime())
-          .filter((t) => !isNaN(t))
-      );
-      const conflicts = fromRows
-        .map((r) => new Date(r.appointment_time))
-        .filter((d) => !isNaN(d.getTime()) && toTimes.has(d.getTime()))
-        .map((d) => d.toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' }));
-
-      if (conflicts.length > 0) {
-        const timesText = [...new Set(conflicts)].join(', ');
-        const confirmed = window.confirm(`У вікна ${toWin} уже є запис на ${timesText}. Ви впевнені, що хочете перенести?`);
-        if (!confirmed) return;
-      }
-    } catch (err) {
-      console.warn('Не вдалося перевірити конфлікти під час перенесення:', err);
+    if (!hasWindowNumber(windowId)) {
+      showError('В обраного менеджера немає вікна.');
+      return;
     }
 
+    const question = questions.find((q) => String(q.id) === String(createForm.question_id));
+    const questionText = createForm.question_text.trim() || question?.text || null;
+    const appointment_time = moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
+
+    setIsCreating(true);
     try {
-      const res = await fetch(`${API_URL}/queue/move-window`, {
-        method: 'PATCH',
+      const res = await fetch(`${API_URL}/queue`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: fromWin,
-          to: toWin
+          question_id: createForm.question_id,
+          question_text: questionText,
+          appointment_time,
+          window_id: windowId,
+          status: 'live_queue'
         })
       });
 
-      const result = await res.json();
-
-      if (res.ok) {
-        showError(`Ок: клієнтів переміщено. Кількість: ${result.moved}`);
-        fetchQueue(page);
-      } else {
-        showError(`Помилка: ${result.error || 'невідома'}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showError(data.error || 'Не вдалося створити запис.');
+        return;
       }
+
+      setCreateForm((prev) => ({ ...prev, question_id: '', question_text: '' }));
+      setPage(1);
+      fetchLiveQueue(1);
     } catch (err) {
-      console.error('Помилка PATCH:', err);
-      showError('Помилка при перенесенні клієнтів');
+      console.error('Помилка створення живої черги:', err);
+      showError('Не вдалося створити запис.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
   const openModal = (item) => {
     setSelected(item);
-    setForm({
+    setEditForm({
       ...item,
       appointment_time_local: formatDateTimeLocal(item.appointment_time),
       start_time_local: formatDateTimeLocal(item.start_time),
@@ -328,9 +321,8 @@ const DispatcherQueue = () => {
   const handleSave = async () => {
     if (!selected) return;
 
-    // Перевірка конфлікту часу при ручній зміні вікна
-    const targetWindow = form.window_id ? parseInt(form.window_id, 10) : null;
-    const targetDate = form.appointment_time_local || selected.appointment_time;
+    const targetWindow = editForm.window_id ? parseInt(editForm.window_id, 10) : null;
+    const targetDate = editForm.appointment_time_local || selected.appointment_time;
     if (targetWindow && targetDate) {
       try {
         const rows = await fetchWindowWaiting(targetWindow);
@@ -343,29 +335,30 @@ const DispatcherQueue = () => {
         );
         if (hasSame) {
           const timeText = new Date(targetDate).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
-          const ok = window.confirm(`У вікна ${targetWindow} уже є запис на ${timeText}. Ви впевнені, що хочете перенести?`);
+          const ok = window.confirm(`У вікна ${targetWindow} вже є запис на ${timeText}. Ви точно хочете продовжити?`);
           if (!ok) return;
         }
       } catch (err) {
-        console.warn('Не вдалося перевірити конфлікт часу при збереженні:', err);
+        console.warn('Не вдалося перевірити конфлікт по часу:', err);
       }
     }
+
     const payload = {
-      ticket_number: form.ticket_number || null,
-      question_id: form.question_id || null,
-      question_text: form.question_text || null,
-      appointment_time: toSqlDateTime(form.appointment_time_local),
-      start_time: toSqlDateTime(form.start_time_local),
-      end_time: toSqlDateTime(form.end_time_local),
-      window_id: form.window_id || null,
-      status: form.status || null,
-      personal_account: form.personal_account || null,
-      extra_actions: Array.isArray(form.extra_actions) ? form.extra_actions : [],
-      extra_other_text: form.extra_other_text || null,
-      application_yesno: form.application_yesno === '' ? null : form.application_yesno === '1',
-      application_types: Array.isArray(form.application_types) ? form.application_types : [],
-      manager_comment: form.manager_comment || null,
-      service_zone: form.service_zone === false || form.service_zone === 0 || form.service_zone === '0' ? 0 : 1,
+      ticket_number: editForm.ticket_number || null,
+      question_id: editForm.question_id || null,
+      question_text: editForm.question_text || null,
+      appointment_time: toSqlDateTime(editForm.appointment_time_local),
+      start_time: toSqlDateTime(editForm.start_time_local),
+      end_time: toSqlDateTime(editForm.end_time_local),
+      window_id: editForm.window_id || null,
+      status: editForm.status || null,
+      personal_account: editForm.personal_account || null,
+      extra_actions: Array.isArray(editForm.extra_actions) ? editForm.extra_actions : [],
+      extra_other_text: editForm.extra_other_text || null,
+      application_yesno: editForm.application_yesno === '' ? null : editForm.application_yesno === '1',
+      application_types: Array.isArray(editForm.application_types) ? editForm.application_types : [],
+      manager_comment: editForm.manager_comment || null,
+      service_zone: editForm.service_zone === false || editForm.service_zone === 0 || editForm.service_zone === '0' ? 0 : 1,
     };
 
     try {
@@ -376,26 +369,26 @@ const DispatcherQueue = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showError(data.error || 'Не вдалося зберегти');
+        showError(data.error || 'Не вдалося зберегти зміни.');
         return;
       }
       setSelected(null);
-      fetchQueue(page);
+      fetchLiveQueue(page);
     } catch (err) {
-      console.error('Помилка збереження:', err);
-      showError('Помилка збереження');
+      console.error('Помилка оновлення талона:', err);
+      showError('Не вдалося зберегти зміни.');
     }
   };
 
   useEffect(() => {
-    fetchTotalCount();
     fetchQuestions();
+    fetchEmployees();
     fetchOptions();
   }, []);
 
   useEffect(() => {
-    fetchQueue(page);
-  }, [page, fromDate, toDate, filterWindow, filterQuestion, filterStatus, sort]);
+    fetchLiveQueue(page);
+  }, [page]);
 
   useEffect(() => {
     if (!socket) return;
@@ -405,10 +398,10 @@ const DispatcherQueue = () => {
         const msg = JSON.parse(event.data);
         if (msg.type === 'queue_updated') {
           setPage(1);
-          fetchQueue(1);
+          fetchLiveQueue(1);
         }
       } catch (err) {
-        console.error('WebSocket error in QueueManager:', err);
+        console.error('WebSocket error in LiveQueue:', err);
       }
     };
 
@@ -417,45 +410,58 @@ const DispatcherQueue = () => {
   }, [socket]);
 
   const questionOptions = questions.map((q) => ({ value: q.id, label: q.text }));
+  const managerOptions = employees.filter((m) => hasWindowNumber(m.window_number));
+  const managerByWindow = new Map(managerOptions.map((m) => [String(m.window_number), m]));
 
   return (
     <div className="queue-manager">
-      <div className="queue-filters">
-        <h3>Фільтри</h3>
-        <div className="filters-grid">
-          <label>З дати
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
-          </label>
-          <label>По дату
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </label>
-          <label>Вікно
-            <input type="number" value={filterWindow} onChange={(e) => setFilterWindow(e.target.value)} placeholder="Будь-яке" />
+      <div className="queue-live">
+        <h3>Жива черга</h3>
+        <div className="queue-live-grid">
+          <label>Менеджер
+            <select
+              value={createForm.manager_id}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, manager_id: e.target.value }))}
+            >
+              <option value="">Оберіть менеджера</option>
+              {managerOptions.length === 0 ? (
+                <option value="" disabled>Немає менеджерів з вікнами</option>
+              ) : managerOptions.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} — вікно {m.window_number}
+                </option>
+              ))}
+            </select>
           </label>
           <label>Питання
-            <select value={filterQuestion} onChange={(e) => setFilterQuestion(e.target.value)}>
-              <option value="">Всі</option>
-              {questionOptions.map((q) => <option key={q.value} value={q.value}>{q.label}</option>)}
+            <select
+              value={createForm.question_id}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, question_id: e.target.value }))}
+            >
+              <option value="">Оберіть питання</option>
+              {questions.map((q) => (
+                <option key={q.id} value={q.id}>{q.text}</option>
+              ))}
             </select>
           </label>
-          <label>Статус
-            <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">Всі</option>
-              {statuses.map((s) => <option key={s} value={s}>{statusLabelMap[s]}</option>)}
-            </select>
+          <label>Текст питання (опц.)
+            <input
+              type="text"
+              value={createForm.question_text}
+              onChange={(e) => setCreateForm((prev) => ({ ...prev, question_text: e.target.value }))}
+              placeholder="Вручну уточнити"
+            />
           </label>
-          <button onClick={() => { setFromDate(''); setToDate(''); setFilterWindow(''); setFilterQuestion(''); setFilterStatus(''); }}>Скинути</button>
+          <button onClick={handleCreateLive} disabled={isCreating}>
+            {isCreating ? 'Створення...' : 'Створити запис'}
+          </button>
+        </div>
+        <div className="queue-live-hint">
+          Запис створюється з поточним часом та статусом «Жива черга».
         </div>
       </div>
 
-      <div className="queue-bulk-transfer">
-        <h3>Масове перенесення вікон</h3>
-        <input type="number" placeholder="З вікна..." value={windowFrom} onChange={(e) => setWindowFrom(e.target.value)} />
-        <input type="number" placeholder="У вікно..." value={windowTo} onChange={(e) => setWindowTo(e.target.value)} />
-        <button onClick={handleBulkRedirect}>Перенести</button>
-      </div>
-
-      <h2>Черга клієнтів</h2>
+      <h2>Записи живої черги</h2>
 
       <div className="queue-pagination">
         {Array.from({ length: totalPages }, (_, i) => (
@@ -468,20 +474,10 @@ const DispatcherQueue = () => {
       <table className="queue-table">
         <thead>
           <tr>
-            <th>
-              № талону
-              <button className="sort-btn" onClick={() => setSort((s) => ({ field: 'ticket_number', dir: s.field === 'ticket_number' && s.dir === 'asc' ? 'desc' : 'asc' }))}>
-                {sort.field === 'ticket_number' ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}
-              </button>
-            </th>
-            <th>
-              Час і дата запису
-              <button className="sort-btn" onClick={() => setSort((s) => ({ field: 'appointment_time', dir: s.field === 'appointment_time' && s.dir === 'asc' ? 'desc' : 'asc' }))}>
-                {sort.field === 'appointment_time' ? (sort.dir === 'asc' ? '↑' : '↓') : '↕'}
-              </button>
-            </th>
+            <th>№ талону</th>
+            <th>Час і дата</th>
             <th>Питання</th>
-            <th>Вікно</th>
+            <th>Менеджер</th>
             <th>Статус</th>
           </tr>
         </thead>
@@ -491,7 +487,9 @@ const DispatcherQueue = () => {
               day: '2-digit', month: '2-digit', year: 'numeric',
               hour: '2-digit', minute: '2-digit'
             });
-            const statusClass = statusClassMap[item.status] || '';
+            const manager = managerByWindow.get(String(item.window_id));
+            const managerLabel = manager ? `${manager.name} — вікно ${manager.window_number}` : (item.window_id || '-');
+            const statusClass = statusClassMap[item.status] || 'status-livequeue';
 
             return (
               <tr
@@ -502,11 +500,16 @@ const DispatcherQueue = () => {
                 <td>{item.ticket_number || item.id}</td>
                 <td>{formatted}</td>
                 <td>{item.question_text}</td>
-                <td>{item.window_id || '-'}</td>
+                <td>{managerLabel}</td>
                 <td>{statusLabelMap[item.status] || item.status}</td>
               </tr>
             );
           })}
+          {!isLoading && queue.length === 0 && (
+            <tr>
+              <td colSpan={5} style={{ padding: '16px' }}>Немає записів</td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -520,14 +523,14 @@ const DispatcherQueue = () => {
               <label>Номер талону
                 <input
                   type="number"
-                  value={form.ticket_number || ''}
-                  onChange={(e) => setForm({ ...form, ticket_number: e.target.value })}
+                  value={editForm.ticket_number || ''}
+                  onChange={(e) => setEditForm({ ...editForm, ticket_number: e.target.value })}
                 />
               </label>
               <label>Питання
                 <select
-                  value={form.question_id || ''}
-                  onChange={(e) => setForm({ ...form, question_id: e.target.value })}
+                  value={editForm.question_id || ''}
+                  onChange={(e) => setEditForm({ ...editForm, question_id: e.target.value })}
                 >
                   <option value="">—</option>
                   {questionOptions.map((q) => (
@@ -538,43 +541,43 @@ const DispatcherQueue = () => {
               <label className="full-span">Текст питання
                 <input
                   type="text"
-                  value={form.question_text || ''}
-                  onChange={(e) => setForm({ ...form, question_text: e.target.value })}
-                  placeholder="Необовʼязково, перекриє question_id"
+                  value={editForm.question_text || ''}
+                  onChange={(e) => setEditForm({ ...editForm, question_text: e.target.value })}
+                  placeholder="Необов’язково, перекриє question_id"
                 />
               </label>
               <label>Час запису
                 <input
                   type="datetime-local"
-                  value={form.appointment_time_local || ''}
-                  onChange={(e) => setForm({ ...form, appointment_time_local: e.target.value })}
+                  value={editForm.appointment_time_local || ''}
+                  onChange={(e) => setEditForm({ ...editForm, appointment_time_local: e.target.value })}
                 />
               </label>
               <label>Старт обслуговування
                 <input
                   type="datetime-local"
-                  value={form.start_time_local || ''}
-                  onChange={(e) => setForm({ ...form, start_time_local: e.target.value })}
+                  value={editForm.start_time_local || ''}
+                  onChange={(e) => setEditForm({ ...editForm, start_time_local: e.target.value })}
                 />
               </label>
               <label>Кінець обслуговування
                 <input
                   type="datetime-local"
-                  value={form.end_time_local || ''}
-                  onChange={(e) => setForm({ ...form, end_time_local: e.target.value })}
+                  value={editForm.end_time_local || ''}
+                  onChange={(e) => setEditForm({ ...editForm, end_time_local: e.target.value })}
                 />
               </label>
               <label>Вікно
                 <input
                   type="number"
-                  value={form.window_id || ''}
-                  onChange={(e) => setForm({ ...form, window_id: e.target.value })}
+                  value={editForm.window_id || ''}
+                  onChange={(e) => setEditForm({ ...editForm, window_id: e.target.value })}
                 />
               </label>
               <label>Статус
                 <select
-                  value={form.status || ''}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  value={editForm.status || ''}
+                  onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                 >
                   <option value="">—</option>
                   {statuses.map((s) => <option key={s} value={s}>{statusLabelMap[s]}</option>)}
@@ -583,8 +586,8 @@ const DispatcherQueue = () => {
               <label>Особовий рахунок
                 <input
                   type="text"
-                  value={form.personal_account || ''}
-                  onChange={(e) => setForm({ ...form, personal_account: e.target.value })}
+                  value={editForm.personal_account || ''}
+                  onChange={(e) => setEditForm({ ...editForm, personal_account: e.target.value })}
                 />
               </label>
 
@@ -592,10 +595,10 @@ const DispatcherQueue = () => {
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <input
                     type="checkbox"
-                    checked={form.service_zone === undefined || form.service_zone === null ? true : !!form.service_zone}
-                    onChange={(e) => setForm({ ...form, service_zone: e.target.checked ? 1 : 0 })}
+                    checked={editForm.service_zone === undefined || editForm.service_zone === null ? true : !!editForm.service_zone}
+                    onChange={(e) => setEditForm({ ...editForm, service_zone: e.target.checked ? 1 : 0 })}
                   />
-                  <span>{form.service_zone === 0 ? 'Не наша' : 'Наша'}</span>
+                  <span>{editForm.service_zone === 0 ? 'Не наша' : 'Наша'}</span>
                 </label>
               </label>
 
@@ -603,22 +606,22 @@ const DispatcherQueue = () => {
                 <MultiSelectDropdown
                   label="Додаткові дії"
                   options={options.extra_actions}
-                  value={Array.isArray(form.extra_actions) ? form.extra_actions : []}
-                  onChange={(arr) => setForm({ ...form, extra_actions: arr })}
+                  value={Array.isArray(editForm.extra_actions) ? editForm.extra_actions : []}
+                  onChange={(arr) => setEditForm({ ...editForm, extra_actions: arr })}
                   placeholder="Обрати дію(ї)"
                 />
               </div>
               <label>Інша дія (текст)
                 <input
                   type="text"
-                  value={form.extra_other_text || ''}
-                  onChange={(e) => setForm({ ...form, extra_other_text: e.target.value })}
+                  value={editForm.extra_other_text || ''}
+                  onChange={(e) => setEditForm({ ...editForm, extra_other_text: e.target.value })}
                 />
               </label>
               <label>Заява (так/ні)
                 <select
-                  value={form.application_yesno}
-                  onChange={(e) => setForm({ ...form, application_yesno: e.target.value })}
+                  value={editForm.application_yesno}
+                  onChange={(e) => setEditForm({ ...editForm, application_yesno: e.target.value })}
                 >
                   <option value="">—</option>
                   <option value="1">Так</option>
@@ -629,16 +632,16 @@ const DispatcherQueue = () => {
                 <MultiSelectDropdown
                   label="Типи заяв"
                   options={options.application_types}
-                  value={Array.isArray(form.application_types) ? form.application_types : []}
-                  onChange={(arr) => setForm({ ...form, application_types: arr })}
+                  value={Array.isArray(editForm.application_types) ? editForm.application_types : []}
+                  onChange={(arr) => setEditForm({ ...editForm, application_types: arr })}
                   placeholder="Обрати тип(и)"
                 />
               </div>
               <label className="full-span">Коментар менеджера
                 <textarea
                   rows={2}
-                  value={form.manager_comment || ''}
-                  onChange={(e) => setForm({ ...form, manager_comment: e.target.value })}
+                  value={editForm.manager_comment || ''}
+                  onChange={(e) => setEditForm({ ...editForm, manager_comment: e.target.value })}
                 />
               </label>
             </div>
@@ -653,4 +656,4 @@ const DispatcherQueue = () => {
   );
 };
 
-export default DispatcherQueue;
+export default LiveQueue;

@@ -4,6 +4,7 @@ import { WebSocketContext } from '../context/WebSocketProvider';
 
 import MainManager from './admin/MainManager';
 import QueueManager from './admin/QueueManager';
+import LiveQueue from './admin/LiveQueue';
 import QuestionsManager from './admin/QuestionsManager';
 import ServiceSettings from './admin/SystemSettings';
 import Statistics from './admin/Statistics';
@@ -181,6 +182,7 @@ const Admin = () => {
         <div className="admin-nav">
           <button onClick={() => setSection('main')}>Управління співробітниками</button>
           <button onClick={() => setSection('queue')}>Черга</button>
+          <button onClick={() => setSection('live-queue')}>Жива черга</button>
           <button onClick={() => setSection('stats')}>Статистика</button>
           <button onClick={() => setSection('staff-move')}>Рух співробітників</button>
           <button onClick={() => setSection('settings')}>Налаштування</button>
@@ -205,6 +207,7 @@ const Admin = () => {
         />
       )}
       {section === 'queue' && <QueueManager />}
+      {section === 'live-queue' && <LiveQueue />}
       {section === 'stats' && <Statistics />}
       {section === 'staff-move' && <StaffTimeline employees={employees} />}
       {section === 'settings' && (

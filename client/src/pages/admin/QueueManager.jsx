@@ -100,7 +100,8 @@ const statusClassMap = {
   completed: 'status-completed',
   missed: 'status-missed',
   alarm_missed: 'status-alarm',
-  did_not_appear: 'status-didnotappear'
+  did_not_appear: 'status-didnotappear',
+  live_queue: 'status-livequeue'
 };
 
 const statusLabelMap = {
@@ -109,7 +110,8 @@ const statusLabelMap = {
   completed: 'Завершено',
   missed: 'Пропущено',
   alarm_missed: 'Пропущено (тривога)',
-  did_not_appear: "Не з'явився"
+  did_not_appear: "Не з'явився",
+  live_queue: 'Жива черга'
 };
 
 const statuses = Object.keys(statusLabelMap);
@@ -481,7 +483,6 @@ const QueueManager = () => {
             <th>Питання</th>
             <th>Вікно</th>
             <th>Статус</th>
-            <th>Дії</th>
           </tr>
         </thead>
         <tbody>
@@ -493,15 +494,16 @@ const QueueManager = () => {
             const statusClass = statusClassMap[item.status] || '';
 
             return (
-              <tr key={item.id} className={statusClass}>
+              <tr
+                key={item.id}
+                className={`${statusClass} queue-row`}
+                onClick={() => openModal(item)}
+              >
                 <td>{item.ticket_number || item.id}</td>
                 <td>{formatted}</td>
                 <td>{item.question_text}</td>
                 <td>{item.window_id || '-'}</td>
                 <td>{statusLabelMap[item.status] || item.status}</td>
-                <td>
-                  <button onClick={() => openModal(item)}>Налаштування</button>
-                </td>
               </tr>
             );
           })}
