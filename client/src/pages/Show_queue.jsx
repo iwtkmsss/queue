@@ -42,6 +42,9 @@ const ShowQueue = () => {
 
   const socket = useContext(WebSocketContext);
 
+  const isLiveQueueRecord = (item) =>
+    item?.queue_type === 'live' || String(item?.status || '').toLowerCase() === 'live_queue';
+
   const timeLeftInMinutes = (appointmentTime) => {
     const now = moment();
     const appt = moment(appointmentTime);
@@ -55,6 +58,7 @@ const ShowQueue = () => {
 
     const waiting = data
       .filter(item =>
+        !isLiveQueueRecord(item) &&
         item.status === 'waiting' &&
         moment(item.appointment_time).format('YYYY-MM-DD') === today
       )
