@@ -58,14 +58,6 @@ const MultiSelectDropdown = ({
   const chips = selected.slice(0, 2).map(id => map.get(id)).filter(Boolean);
   const more = Math.max(selected.length - chips.length, 0);
 
-  const statusLabel = {
-    waiting: 'Очікує',
-    in_progress: 'В обслуговуванні',
-    completed: 'Завершено',
-    missed: 'Пропущено',
-    alarm_missed: 'Пропущено (тривога)',
-    did_not_appear: 'Не з\'явився',
-  };
 
   return (
     <div className="msd" ref={ref}>
@@ -129,7 +121,13 @@ const Manager = () => {
 
   const [appointments, setAppointments] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const currentClient = appointments.find(app => app.status === 'in_progress');
+  const normalizeStatus = (value) => {
+    const key = String(value || '').toLowerCase();
+    return key === 'live_queue' ? 'waiting' : key;
+  };
+  const isLiveQueueRecord = (item) =>
+    item?.queue_type === 'live' || String(item?.status || '').toLowerCase() === 'live_queue';
+  const currentClient = appointments.find(app => normalizeStatus(app.status) === 'in_progress');
   const hasActiveClient = Boolean(currentClient);
   const [now, setNow] = useState(moment.tz('Europe/Kyiv'));
   const [serviceDuration, setServiceDuration] = useState(20);
@@ -144,6 +142,12 @@ const Manager = () => {
     alarm_missed: 'Пропущено (тривога)',
     did_not_appear: 'Не з\'явився',
   };
+  const formatStatusLabel = (item) => {
+    const statusKey = normalizeStatus(item?.status);
+    const base = statusLabel[statusKey] || item?.status || '';
+    return isLiveQueueRecord(item) ? `${base} (жива черга)` : base;
+  };
+
 
   // === META STATE (multi-selects + boolean) ===
   const [meta, setMeta] = useState({
@@ -232,8 +236,11 @@ const Manager = () => {
   const validateMetaLocal = (m) => {
     const errs = [];
     const isArray = Array.isArray;
+    const requireAccount = m.service_zone !== false;
 
-    if (!m.personal_account?.trim()) errs.push('Вкажіть особовий рахунок.');
+    if (requireAccount && !m.personal_account?.trim()) {
+      errs.push('Вкажіть особовий рахунок.');
+    }
     if (isArray(m.extra_actions) &&
         m.extra_actions.includes('EX_OTHER_FREE_TEXT') &&
         !m.extra_other_text?.trim()) {
@@ -271,8 +278,9 @@ const Manager = () => {
   };
 
   const isExtraOtherSelected = Array.isArray(meta.extra_actions) && meta.extra_actions.includes('EX_OTHER_FREE_TEXT');
+  const requireAccount = meta.service_zone !== false;
   const isFinishDisabled =
-    !meta.personal_account.trim() ||
+    (requireAccount && !meta.personal_account.trim()) ||
     (isExtraOtherSelected && !meta.extra_other_text.trim()) ||
     (meta.application_yesno === null) ||
     (meta.application_yesno === true && 
@@ -504,7 +512,7 @@ const Manager = () => {
       const now = new Date();
 
       const overdue = todayAppointmentsRef.current.filter(entry => {
-        const isWaiting = entry.status === 'waiting';
+        const isWaiting = normalizeStatus(entry.status) === 'waiting';
         const noStart = !entry.start_time || entry.start_time === 'null' || entry.start_time === '';
         const timePassed = new Date(entry.appointment_time).getTime() + 60000 < now.getTime();
 
@@ -528,11 +536,11 @@ const Manager = () => {
 
     const tick = () => {
       const list = todayAppointmentsRef.current || [];
-      const inProgress = list.find((entry) => entry.status?.toLowerCase() === 'in_progress');
+      const inProgress = list.find((entry) => normalizeStatus(entry.status) === 'in_progress');
       if (inProgress) return;
 
       const waiting = list
-        .filter((entry) => entry.status?.toLowerCase() === 'waiting')
+        .filter((entry) => normalizeStatus(entry.status) === 'waiting')
         .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time));
 
       if (!waiting.length) return;
@@ -561,7 +569,7 @@ const Manager = () => {
 
     const tick = () => {
       const list = todayAppointmentsRef.current || [];
-      const current = list.find((entry) => entry.status?.toLowerCase() === 'in_progress');
+      const current = list.find((entry) => normalizeStatus(entry.status) === 'in_progress');
       if (!current || !current.start_time) return;
 
       const started = moment(current.start_time);
@@ -591,7 +599,7 @@ const Manager = () => {
     const checkAndSkip = () => {
       const now = moment.tz('Europe/Kyiv');
       const expired = (todayAppointmentsRef.current || []).filter(app =>
-        app.status?.toLowerCase() === 'waiting' &&
+        normalizeStatus(app.status) === 'waiting' &&
         moment(app.appointment_time).isBefore(now.clone().subtract(serviceDuration + 5, 'minutes'))
       );
 
@@ -770,7 +778,7 @@ const Manager = () => {
     // Спочатку: waiting і in_progress — по часу (найраніші зверху)
     ...appointments
       .filter(a => {
-        const status = a.status?.toLowerCase();
+        const status = normalizeStatus(a.status);
         return status === 'waiting' || status === 'in_progress';
       })
       .sort((a, b) => new Date(a.appointment_time) - new Date(b.appointment_time)),
@@ -778,7 +786,7 @@ const Manager = () => {
     // Далі: всі інші статуси — знизу, у зворотному порядку
     ...appointments
       .filter(a => {
-        const status = a.status?.toLowerCase();
+        const status = normalizeStatus(a.status);
         return status !== 'waiting' && status !== 'in_progress';
       })
       .sort((a, b) => new Date(b.appointment_time) - new Date(a.appointment_time))
@@ -863,32 +871,38 @@ const Manager = () => {
             Наразі нові записи відсутні
           </li>
         ) : (
-          sortedAppointments.map(app => (
-            <li
-              key={app.id}
-              className={`ticket ${app.status?.toLowerCase()}`}
-              onClick={() => {
-                if (
-                app.status?.toLowerCase() === 'completed' || 
-                app.status?.toLowerCase() === 'missed' || 
-                app.status?.toLowerCase() === 'did_not_appear' ||
-                app.status?.toLowerCase() === 'alarm_missed') {
-                  return; 
-              }
-              setSelectedTicket(app);
-            }}
-            >
-	     <span className="ticket-num">№{app.ticket_number || app.id}</span>
-              <strong>
-                {new Date(app.appointment_time).toLocaleTimeString('uk-UA', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </strong>
-              <span>{app.question_text}</span>
-              <span className="status">{statusLabel[app.status?.toLowerCase()] || app.status}</span>
-            </li>
-          ))
+          sortedAppointments.map(app => {
+            const statusKey = normalizeStatus(app.status);
+            const isLive = isLiveQueueRecord(app);
+            const isBlocked =
+              statusKey === 'completed' ||
+              statusKey === 'missed' ||
+              statusKey === 'did_not_appear' ||
+              statusKey === 'alarm_missed';
+
+            return (
+              <li
+                key={app.id}
+                className={`ticket ${statusKey} ${isLive ? 'live-queue' : ''}`}
+                onClick={() => {
+                  if (isBlocked) {
+                    return;
+                  }
+                  setSelectedTicket(app);
+                }}
+              >
+                <span className="ticket-num">№{app.ticket_number || app.id}</span>
+                <strong>
+                  {new Date(app.appointment_time).toLocaleTimeString('uk-UA', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </strong>
+                <span>{app.question_text}</span>
+                <span className="status">{formatStatusLabel(app)}</span>
+              </li>
+            );
+          })
         )}
       </ul>
       {selectedTicket && (
@@ -897,20 +911,22 @@ const Manager = () => {
           <h3>Талон №{selectedTicket.ticket_number || selectedTicket.id}</h3>
           <p>Час: {new Date(selectedTicket.appointment_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' })}</p>
           <p>Питання: {selectedTicket.question_text}</p>
-          <p>Статус: {statusLabel[selectedTicket.status?.toLowerCase()] || selectedTicket.status}</p>
+          <p>Статус: {formatStatusLabel(selectedTicket)}</p>
 
           {/* ФОРМА (окрема від кнопок) */}
           <div className="modal-body">
             <div className="meta-form">
-              <div className="field field-account">
-                <label>Особовий рахунок<span className="req">*</span></label>
-                <input
-                  type="text"
-                  value={meta.personal_account}
-                  onChange={e => onMetaChange({ personal_account: e.target.value })}
-                  placeholder="Введіть особовий рахунок"
-                />
-              </div>
+              {meta.service_zone !== false && (
+                <div className="field field-account">
+                  <label>Особовий рахунок<span className="req">*</span></label>
+                  <input
+                    type="text"
+                    value={meta.personal_account}
+                    onChange={e => onMetaChange({ personal_account: e.target.value })}
+                    placeholder="Введіть особовий рахунок"
+                  />
+                </div>
+              )}
 
               <div className="field field-zone">
                 <label>Зона обслуговування</label>
@@ -994,20 +1010,20 @@ const Manager = () => {
           </div>
           {/* НИЖНЯ ПАНЕЛЬ КНОПОК */}
           <div className="modal-footer">
-            {selectedTicket.status?.toLowerCase() === 'waiting' && (
+            {normalizeStatus(selectedTicket.status) === 'waiting' && (
               <button
                 className="start"
                 onClick={() => handleStart(selectedTicket.id)}
                 title={hasActiveClient ? 'Завершіть поточного клієнта перед стартом нового.' : undefined}
               >Старт</button>
             )}
-            {selectedTicket.status?.toLowerCase() === 'in_progress' && (
+            {normalizeStatus(selectedTicket.status) === 'in_progress' && (
               <button className="finish" onClick={() => handleFinish(selectedTicket.id)}>
                 Фініш
               </button>
             )}
             <button className="skip" onClick={() => handleDidNotAppear(selectedTicket.id)}>Не зʼявився</button>
-            {selectedTicket.status?.toLowerCase() !== 'in_progress' && (
+            {normalizeStatus(selectedTicket.status) !== 'in_progress' && (
               <button className="close" onClick={() => setSelectedTicket(null)}>Закрити</button>
             )}
           </div>

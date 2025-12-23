@@ -27,6 +27,7 @@ exports.getTodayAppointments = (req, res) => {
       q.ticket_number,
       q.appointment_time,
       q.status,
+      q.queue_type,
       COALESCE(q.question_text, que.text) AS question_text,
       q.personal_account,
       q.extra_actions,
@@ -112,6 +113,12 @@ exports.finishAppointment = (req, res) => {
 
     const errors = [];
     const personal_account = (rowOrBody.personal_account ?? '').trim();
+    const requiresAccount = (() => {
+      const s = rowOrBody.service_zone;
+      if (s === null || s === undefined) return true;
+      const str = String(s).toLowerCase();
+      return !(s === false || s === 0 || str === '0' || str === 'false');
+    })();
     const extra_actions = toArray(rowOrBody.extra_actions);
     const extra_other_text = (rowOrBody.extra_other_text ?? '').trim();
     const application_yesno =
@@ -120,7 +127,9 @@ exports.finishAppointment = (req, res) => {
         : !!rowOrBody.application_yesno;
     const application_types = application_yesno ? toArray(rowOrBody.application_types) : [];
 
-    if (!personal_account) errors.push('Вкажіть особовий рахунок.');
+    if (requiresAccount && !personal_account) {
+      errors.push('Вкажіть особовий рахунок.');
+    }
     if (extra_actions.includes('EX_OTHER_FREE_TEXT') && !extra_other_text) {
       errors.push('Опишіть "Інше" у текстовому полі.');
     }

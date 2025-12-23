@@ -85,6 +85,10 @@ async function ensureColumns(db) {
         err ? reject(err) : resolve()
       )
     );
+  const runSql = (sql, params = []) =>
+    new Promise((resolve, reject) =>
+      db.run(sql, params, (err) => (err ? reject(err) : resolve()))
+    );
 
   const desiredQueueColumns = [
     { name: 'start_time', ddl: 'start_time TEXT' },
@@ -97,6 +101,7 @@ async function ensureColumns(db) {
     { name: 'personal_account', ddl: 'personal_account TEXT' },
     { name: 'question_text', ddl: 'question_text TEXT' },
     { name: 'ticket_number', ddl: 'ticket_number INTEGER' },
+    { name: 'queue_type', ddl: "queue_type TEXT DEFAULT 'regular'" },
     { name: 'service_zone', ddl: 'service_zone INTEGER DEFAULT 1' },
   ];
 
@@ -108,6 +113,13 @@ async function ensureColumns(db) {
       await addColumn('queue', col.ddl);
       console.log(`Added column ${col.name} to queue`);
     }
+  }
+
+  try {
+    await runSql("UPDATE queue SET queue_type = 'live', status = 'waiting' WHERE status = 'live_queue'");
+    await runSql("UPDATE queue SET queue_type = 'regular' WHERE queue_type IS NULL OR queue_type = ''");
+  } catch (err) {
+    console.warn('Queue type migration failed:', err.message || err);
   }
 }
 

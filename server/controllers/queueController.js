@@ -7,10 +7,17 @@ exports.getAllQueue = (req, res) => {
   const db = req.app.get('db');
   const limit = parseInt(req.query.limit) || 50;
   const offset = parseInt(req.query.offset) || 0;
-  const { from, to, window_id, question_id, status, sort_field, sort_dir } = req.query;
+  const { from, to, window_id, question_id, status, queue_type, sort_field, sort_dir } = req.query;
 
   const conditions = [];
   const params = [];
+  let normalizedStatus = status;
+  let normalizedQueueType = queue_type;
+
+  if (status === 'live_queue') {
+    normalizedStatus = null;
+    normalizedQueueType = 'live';
+  }
 
   if (from) {
     conditions.push('DATE(q.appointment_time) >= ?');
@@ -28,9 +35,18 @@ exports.getAllQueue = (req, res) => {
     conditions.push('q.question_id = ?');
     params.push(question_id);
   }
-  if (status) {
+  if (normalizedQueueType) {
+    if (normalizedQueueType === 'live') {
+      conditions.push('(q.queue_type = ? OR q.status = ?)');
+      params.push('live', 'live_queue');
+    } else {
+      conditions.push('q.queue_type = ?');
+      params.push(normalizedQueueType);
+    }
+  }
+  if (normalizedStatus) {
     conditions.push('q.status = ?');
-    params.push(status);
+    params.push(normalizedStatus);
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -85,13 +101,21 @@ exports.updateQueueWindow = (req, res) => {
 
 exports.createQueueRecord = async (req, res) => {
   try {
-    const { question_id, question_text, appointment_time, customer_name, window_id, status } = req.body;
-    const normalizedStatus = status === 'live_queue' ? 'live_queue' : 'waiting';
+    const {
+      question_id,
+      question_text,
+      appointment_time,
+      customer_name,
+      window_id,
+      status,
+      queue_type
+    } = req.body;
+    const isLive = queue_type === 'live' || status === 'live_queue';
+    const normalizedStatus = status && status !== 'live_queue' ? status : 'waiting';
+    const normalizedQueueType = isLive ? 'live' : 'regular';
     const appointmentSource =
       appointment_time ||
-      (normalizedStatus === 'live_queue'
-        ? moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss')
-        : null);
+      (isLive ? moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss') : null);
 
     if (!question_id || !appointmentSource || !window_id) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -107,7 +131,8 @@ exports.createQueueRecord = async (req, res) => {
       appointment_time: appointmentKyivStr,
       customer_name: customer_name || '—',
       window_id,
-      status: normalizedStatus
+      status: normalizedStatus,
+      queue_type: normalizedQueueType
     });
 
     broadcast({ type: 'queue_updated' });
@@ -243,7 +268,7 @@ exports.moveQueueToAnotherWindow = (req, res) => {
 
 exports.getQueueStats = (req, res) => {
   const db = req.app.get('db');
-  const { from, to, window_id, question_id, status, group_by } = req.query;
+  const { from, to, window_id, question_id, status, group_by, queue_type } = req.query;
 
   if (!from || !to) {
     return res.status(400).json({ error: 'Необхідно вказати параметри дат from і to' });
@@ -251,23 +276,40 @@ exports.getQueueStats = (req, res) => {
 
   const groupBy = ['hour', 'window', 'question'].includes(group_by) ? group_by : 'hour';
 
-  const params = [
-    from,
-    to,
-    window_id || null,
-    window_id || null,
-    question_id || null,
-    question_id || null,
-    status || null,
-    status || null
-  ];
+  let normalizedStatus = status;
+  let normalizedQueueType = queue_type;
 
-  const baseWhere = `
-    DATE(q.appointment_time) BETWEEN ? AND ?
-    AND (? IS NULL OR q.window_id = ?)
-    AND (? IS NULL OR q.question_id = ?)
-    AND (? IS NULL OR q.status = ?)
-  `;
+  if (status === 'live_queue') {
+    normalizedStatus = null;
+    normalizedQueueType = 'live';
+  }
+
+  const conditions = ['DATE(q.appointment_time) BETWEEN ? AND ?'];
+  const params = [from, to];
+
+  if (window_id) {
+    conditions.push('q.window_id = ?');
+    params.push(window_id);
+  }
+  if (question_id) {
+    conditions.push('q.question_id = ?');
+    params.push(question_id);
+  }
+  if (normalizedQueueType) {
+    if (normalizedQueueType === 'live') {
+      conditions.push('(q.queue_type = ? OR q.status = ?)');
+      params.push('live', 'live_queue');
+    } else {
+      conditions.push('q.queue_type = ?');
+      params.push(normalizedQueueType);
+    }
+  }
+  if (normalizedStatus) {
+    conditions.push('q.status = ?');
+    params.push(normalizedStatus);
+  }
+
+  const where = `WHERE ${conditions.join(' AND ')}`;
 
   const statsSql = `
     SELECT 
@@ -275,7 +317,7 @@ exports.getQueueStats = (req, res) => {
       COUNT(*) AS total_clients,
       ROUND(AVG(CASE WHEN q.start_time IS NOT NULL AND q.end_time IS NOT NULL THEN JULIANDAY(q.end_time) - JULIANDAY(q.start_time) END) * 24 * 60, 1) AS avg_service_minutes
     FROM queue q
-    WHERE ${baseWhere}
+    ${where}
     GROUP BY q.window_id
   `;
 
@@ -295,7 +337,7 @@ exports.getQueueStats = (req, res) => {
       COUNT(*) AS count
     FROM queue q
     LEFT JOIN questions qu ON q.question_id = qu.id
-    WHERE ${baseWhere}
+    ${where}
     GROUP BY label
     ORDER BY ${orderExpr}
   `;
@@ -323,22 +365,46 @@ exports.getQueueStats = (req, res) => {
 
 exports.exportQueueRaw = (req, res) => {
   const db = req.app.get('db');
-  const { from, to, window_id, question_id, status, format } = req.query;
+  const { from, to, window_id, question_id, status, format, queue_type } = req.query;
 
   if (!from || !to) {
     return res.status(400).json({ error: 'Необхідно вказати параметри дат from і to' });
   }
 
-  const params = [
-    from,
-    to,
-    window_id || null,
-    window_id || null,
-    question_id || null,
-    question_id || null,
-    status || null,
-    status || null
-  ];
+  let normalizedStatus = status;
+  let normalizedQueueType = queue_type;
+
+  if (status === 'live_queue') {
+    normalizedStatus = null;
+    normalizedQueueType = 'live';
+  }
+
+  const conditions = ['DATE(q.appointment_time) BETWEEN ? AND ?'];
+  const params = [from, to];
+
+  if (window_id) {
+    conditions.push('q.window_id = ?');
+    params.push(window_id);
+  }
+  if (question_id) {
+    conditions.push('q.question_id = ?');
+    params.push(question_id);
+  }
+  if (normalizedQueueType) {
+    if (normalizedQueueType === 'live') {
+      conditions.push('(q.queue_type = ? OR q.status = ?)');
+      params.push('live', 'live_queue');
+    } else {
+      conditions.push('q.queue_type = ?');
+      params.push(normalizedQueueType);
+    }
+  }
+  if (normalizedStatus) {
+    conditions.push('q.status = ?');
+    params.push(normalizedStatus);
+  }
+
+  const where = `WHERE ${conditions.join(' AND ')}`;
 
   const sql = `
     SELECT
@@ -357,14 +423,11 @@ exports.exportQueueRaw = (req, res) => {
       q.extra_other_text,
       q.application_yesno,
       q.application_types,
-      q.manager_comment
+      q.manager_comment,
+      q.queue_type
     FROM queue q
     LEFT JOIN questions qu ON q.question_id = qu.id
-    WHERE
-      DATE(q.appointment_time) BETWEEN ? AND ?
-      AND (? IS NULL OR q.window_id = ?)
-      AND (? IS NULL OR q.question_id = ?)
-      AND (? IS NULL OR q.status = ?)
+    ${where}
     ORDER BY q.appointment_time ASC, q.id ASC
   `;
 
@@ -436,6 +499,7 @@ exports.updateQueueFull = (req, res) => {
     }
     return [];
   };
+  const normalizeStatusValue = (value) => (value === 'live_queue' ? 'waiting' : value);
 
   db.get(`SELECT * FROM queue WHERE id = ?`, [id], (err, row) => {
     if (err || !row) {
@@ -450,7 +514,7 @@ exports.updateQueueFull = (req, res) => {
       start_time: body.start_time ?? row.start_time ?? null,
       end_time: body.end_time ?? row.end_time ?? null,
       window_id: body.window_id ?? row.window_id,
-      status: body.status ?? row.status,
+      status: normalizeStatusValue(body.status ?? row.status),
       personal_account: body.personal_account ?? row.personal_account ?? null,
       extra_actions: JSON.stringify(toArray(body.extra_actions ?? row.extra_actions)),
       extra_other_text: body.extra_other_text ?? row.extra_other_text ?? null,

@@ -101,8 +101,7 @@ const statusClassMap = {
   completed: 'status-completed',
   missed: 'status-missed',
   alarm_missed: 'status-alarm',
-  did_not_appear: 'status-didnotappear',
-  live_queue: 'status-livequeue'
+  did_not_appear: 'status-didnotappear'
 };
 
 const statusLabelMap = {
@@ -111,11 +110,16 @@ const statusLabelMap = {
   completed: 'Завершено',
   missed: 'Пропущено',
   alarm_missed: 'Пропущено (тривога)',
-  did_not_appear: "Не з'явився",
-  live_queue: 'Жива черга'
+  did_not_appear: "Не з'явився"
 };
 
 const statuses = Object.keys(statusLabelMap);
+const normalizeStatus = (status) => (status === 'live_queue' ? 'waiting' : status);
+const isLiveQueueRecord = (item) => item?.queue_type === 'live' || item?.status === 'live_queue';
+const formatStatusLabel = (status, isLive) => {
+  const base = statusLabelMap[normalizeStatus(status)] || normalizeStatus(status) || status || '';
+  return isLive ? `${base} (жива черга)` : base;
+};
 
 const tryParseArray = (v) => {
   if (Array.isArray(v)) return v;
@@ -220,7 +224,7 @@ const LiveQueue = () => {
         offset,
         sort_field: 'appointment_time',
         sort_dir: 'desc',
-        status: 'live_queue',
+        queue_type: 'live',
       });
 
       const res = await fetch(`${API_URL}/queue?${params.toString()}`);
@@ -283,7 +287,7 @@ const LiveQueue = () => {
           question_text: questionText,
           appointment_time,
           window_id: windowId,
-          status: 'live_queue'
+          queue_type: 'live'
         })
       });
 
@@ -308,6 +312,7 @@ const LiveQueue = () => {
     setSelected(item);
     setEditForm({
       ...item,
+      status: normalizeStatus(item.status),
       appointment_time_local: formatDateTimeLocal(item.appointment_time),
       start_time_local: formatDateTimeLocal(item.start_time),
       end_time_local: formatDateTimeLocal(item.end_time),
@@ -489,19 +494,21 @@ const LiveQueue = () => {
             });
             const manager = managerByWindow.get(String(item.window_id));
             const managerLabel = manager ? `${manager.name} — вікно ${manager.window_number}` : (item.window_id || '-');
-            const statusClass = statusClassMap[item.status] || 'status-livequeue';
+            const isLive = isLiveQueueRecord(item);
+            const statusKey = normalizeStatus(item.status);
+            const statusClass = statusClassMap[statusKey] || '';
 
             return (
               <tr
                 key={item.id}
-                className={`${statusClass} queue-row`}
+                className={`${statusClass} ${isLive ? 'live-queue' : ''} queue-row`}
                 onClick={() => openModal(item)}
               >
                 <td>{item.ticket_number || item.id}</td>
                 <td>{formatted}</td>
                 <td>{item.question_text}</td>
                 <td>{managerLabel}</td>
-                <td>{statusLabelMap[item.status] || item.status}</td>
+                <td>{formatStatusLabel(item.status, isLive)}</td>
               </tr>
             );
           })}
@@ -580,7 +587,9 @@ const LiveQueue = () => {
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
                 >
                   <option value="">—</option>
-                  {statuses.map((s) => <option key={s} value={s}>{statusLabelMap[s]}</option>)}
+                  {statuses.map((s) => (
+                    <option key={s} value={s}>{formatStatusLabel(s, true)}</option>
+                  ))}
                 </select>
               </label>
               <label>Особовий рахунок

@@ -100,8 +100,7 @@ const statusClassMap = {
   completed: 'status-completed',
   missed: 'status-missed',
   alarm_missed: 'status-alarm',
-  did_not_appear: 'status-didnotappear',
-  live_queue: 'status-livequeue'
+  did_not_appear: 'status-didnotappear'
 };
 
 const statusLabelMap = {
@@ -110,11 +109,16 @@ const statusLabelMap = {
   completed: 'Завершено',
   missed: 'Пропущено',
   alarm_missed: 'Пропущено (тривога)',
-  did_not_appear: "Не з'явився",
-  live_queue: 'Жива черга'
+  did_not_appear: "Не з'явився"
 };
 
 const statuses = Object.keys(statusLabelMap);
+const normalizeStatus = (status) => (status === 'live_queue' ? 'waiting' : status);
+const isLiveQueueRecord = (item) => item?.queue_type === 'live' || item?.status === 'live_queue';
+const formatStatusLabel = (status, isLive) => {
+  const base = statusLabelMap[normalizeStatus(status)] || normalizeStatus(status) || status || '';
+  return isLive ? `${base} (жива черга)` : base;
+};
 
 const tryParseArray = (v) => {
   if (Array.isArray(v)) return v;
@@ -417,6 +421,7 @@ const DispatcherQueue = () => {
   }, [socket]);
 
   const questionOptions = questions.map((q) => ({ value: q.id, label: q.text }));
+  const isSelectedLive = selected ? isLiveQueueRecord(selected) : false;
 
   return (
     <div className="queue-manager">
@@ -491,19 +496,21 @@ const DispatcherQueue = () => {
               day: '2-digit', month: '2-digit', year: 'numeric',
               hour: '2-digit', minute: '2-digit'
             });
-            const statusClass = statusClassMap[item.status] || '';
+            const isLive = isLiveQueueRecord(item);
+            const statusKey = normalizeStatus(item.status);
+            const statusClass = statusClassMap[statusKey] || '';
 
             return (
               <tr
                 key={item.id}
-                className={`${statusClass} queue-row`}
+                className={`${statusClass} ${isLive ? 'live-queue' : ''} queue-row`}
                 onClick={() => openModal(item)}
               >
                 <td>{item.ticket_number || item.id}</td>
                 <td>{formatted}</td>
                 <td>{item.question_text}</td>
                 <td>{item.window_id || '-'}</td>
-                <td>{statusLabelMap[item.status] || item.status}</td>
+                <td>{formatStatusLabel(item.status, isLive)}</td>
               </tr>
             );
           })}
@@ -577,7 +584,9 @@ const DispatcherQueue = () => {
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
                 >
                   <option value="">—</option>
-                  {statuses.map((s) => <option key={s} value={s}>{statusLabelMap[s]}</option>)}
+                  {statuses.map((s) => (
+                    <option key={s} value={s}>{formatStatusLabel(s, isSelectedLive)}</option>
+                  ))}
                 </select>
               </label>
               <label>Особовий рахунок

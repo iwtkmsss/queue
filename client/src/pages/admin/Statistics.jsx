@@ -21,6 +21,21 @@ const STATUS_LABEL = {
   did_not_appear: "Не з'явився",
 };
 
+const QUEUE_TYPE_LABEL = {
+  '': 'Всі',
+  regular: 'Звичайна черга',
+  live: 'Жива черга',
+};
+
+const normalizeStatus = (value) => (value === 'live_queue' ? 'waiting' : value);
+
+const formatStatusLabel = (statusValue, queueTypeValue) => {
+  const normalized = normalizeStatus(statusValue);
+  const base = STATUS_LABEL[normalized] || normalized || '';
+  const isLive = queueTypeValue === 'live' || statusValue === 'live_queue';
+  return isLive ? `${base} (жива черга)` : base;
+};
+
 const EXPORT_FIELDS = [
   { key: 'id', label: 'ID' },
   { key: 'ticket_number', label: 'Номер талону' },
@@ -51,6 +66,7 @@ const Statistics = () => {
   const [questions, setQuestions] = useState([]);
   const [groupBy, setGroupBy] = useState('hour');
   const [status, setStatus] = useState('');
+  const [queueType, setQueueType] = useState('');
   const [loading, setLoading] = useState(false);
   const [options, setOptions] = useState({ extra_actions: [], application_types: [] });
 
@@ -60,6 +76,7 @@ const Statistics = () => {
   const [exportWindowId, setExportWindowId] = useState('');
   const [exportQuestionId, setExportQuestionId] = useState('');
   const [exportStatus, setExportStatus] = useState('');
+  const [exportQueueType, setExportQueueType] = useState('');
   const [exportFields, setExportFields] = useState(() =>
     EXPORT_FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: true }), {})
   );
@@ -108,6 +125,7 @@ const Statistics = () => {
     if (windowId) params.append('window_id', windowId);
     if (questionId) params.append('question_id', questionId);
     if (status) params.append('status', status);
+    if (queueType) params.append('queue_type', queueType);
 
     try {
       setLoading(true);
@@ -142,10 +160,11 @@ const Statistics = () => {
 
   useEffect(() => {
     fetchStats();
-  }, [fromDate, toDate, windowId, questionId, groupBy, status]);
+  }, [fromDate, toDate, windowId, questionId, groupBy, status, queueType]);
 
-  const formatValueForExport = (key, val) => {
-    if (key === 'status') return STATUS_LABEL[val] || val || '';
+  const formatValueForExport = (key, val, row) => {
+    if (key === 'status') return formatStatusLabel(val, row?.queue_type);
+    if (key === 'queue_type') return QUEUE_TYPE_LABEL[val] || val || '';
     if (key === 'service_zone') return (val === 0 || val === '0' || val === false) ? 'Не наша' : 'Наша';
     if (key === 'application_yesno') {
       if (val === null || val === undefined) return '';
@@ -173,6 +192,7 @@ const Statistics = () => {
     if (exportWindowId) params.append('window_id', exportWindowId);
     if (exportQuestionId) params.append('question_id', exportQuestionId);
     if (exportStatus) params.append('status', exportStatus);
+    if (exportQueueType) params.append('queue_type', exportQueueType);
 
     try {
       const res = await fetch(`${API_URL}/queue/export?${params.toString()}`);
@@ -187,7 +207,7 @@ const Statistics = () => {
       const normalized = rows.map((row) => {
         const next = {};
         selected.forEach(({ key, label }) => {
-          next[label] = formatValueForExport(key, row[key]);
+          next[label] = formatValueForExport(key, row[key], row);
         });
         return next;
       });
@@ -244,10 +264,18 @@ const Statistics = () => {
           </select>
         </label>
         <label>
+          Тип черги:
+          <select value={queueType} onChange={(e) => setQueueType(e.target.value)}>
+            {Object.entries(QUEUE_TYPE_LABEL).map(([value, label]) => (
+              <option key={value || 'all'} value={value}>{label}</option>
+            ))}
+          </select>
+        </label>
+        <label>
           Статус:
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
             {Object.entries(STATUS_LABEL).map(([value, label]) => (
-              <option key={value || 'all'} value={value}>{label}</option>
+              <option key={value || 'all'} value={value}>{value ? formatStatusLabel(value, queueType) : label}</option>
             ))}
           </select>
         </label>
@@ -323,10 +351,18 @@ const Statistics = () => {
               </select>
             </label>
             <label>
+              Тип черги:
+              <select value={exportQueueType} onChange={(e) => setExportQueueType(e.target.value)}>
+                {Object.entries(QUEUE_TYPE_LABEL).map(([value, label]) => (
+                  <option key={value || 'all'} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
               Статус:
               <select value={exportStatus} onChange={(e) => setExportStatus(e.target.value)}>
                 {Object.entries(STATUS_LABEL).map(([value, label]) => (
-                  <option key={value || 'all'} value={value}>{label}</option>
+                  <option key={value || 'all'} value={value}>{value ? formatStatusLabel(value, exportQueueType) : label}</option>
                 ))}
               </select>
             </label>

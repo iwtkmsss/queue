@@ -52,10 +52,6 @@
   color: #6b7280;
 }
 
-.status-livequeue {
-  background-color: #ffd6a5;
-}
-
 @media (max-width: 768px) {
   .queue-live-grid {
     grid-template-columns: 1fr;

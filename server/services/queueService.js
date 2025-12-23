@@ -29,7 +29,7 @@ const getAvailableTimes = async (questionId, date) => {
   const employees = await getEmployeesForQuestion(questionId, date);
   if (!employees.length) return null;
 
-  const lastServiceTimes = await getLastServiceTimesForQuestion(employees, questionId);
+  const lastServiceTimes = await getLastServiceTimesForEmployees(employees);
 
   const now = moment().tz('Europe/Kyiv');
 
@@ -97,13 +97,13 @@ const getAvailableTimes = async (questionId, date) => {
 
 
 
-async function getLastServiceTimesForQuestion(employees, questionId) {
+async function getLastServiceTimesForEmployees(employees) {
   const map = {};
   for (const emp of employees) {
     const row = await db.getAsync(
       `SELECT MAX(created_at) AS last_time FROM queue 
-       WHERE window_id = ? AND question_id = ?`,
-      [emp.window_number, questionId]
+       WHERE window_id = ?`,
+      [emp.window_number]
     );
     map[emp.id] = row?.last_time ? new Date(row.last_time).getTime() : 0;
   }
@@ -153,7 +153,7 @@ async function getFreeTimeSlotsForEmployee(employee, date, duration) {
   const existing = await db.allAsync(
     `SELECT appointment_time FROM queue
      WHERE window_id = ? AND DATE(appointment_time) = ?
-     AND status IN ('waiting', 'in_progress')`,
+     AND status IN ('waiting', 'in_progress', 'live_queue')`,
     [employee.window_number, date]
   );
 
@@ -273,15 +273,26 @@ async function getNextTicketNumber(appointmentTime) {
   return (row?.max_num || 0) + 1;
 }
 
-const createQueueRecord = async ({ question_id, question_text, appointment_time, window_id, status }) => {
-  const normalizedStatus = status === 'live_queue' ? 'live_queue' : 'waiting';
+const createQueueRecord = async ({ question_id, question_text, appointment_time, window_id, status, queue_type }) => {
+  const isLive = queue_type === 'live' || status === 'live_queue';
+  const normalizedStatus = status && status !== 'live_queue' ? status : 'waiting';
+  const normalizedQueueType = isLive ? 'live' : 'regular';
   const created_at = moment().tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
   const ticket_number = await getNextTicketNumber(appointment_time);
 
   const result = await db.runAsync(
-    `INSERT INTO queue (question_id, question_text, appointment_time, window_id, status, created_at, ticket_number)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [question_id, question_text || null, appointment_time, window_id, normalizedStatus, created_at, ticket_number]
+    `INSERT INTO queue (question_id, question_text, appointment_time, window_id, status, queue_type, created_at, ticket_number)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      question_id,
+      question_text || null,
+      appointment_time,
+      window_id,
+      normalizedStatus,
+      normalizedQueueType,
+      created_at,
+      ticket_number
+    ]
   );
 
   return {
@@ -292,6 +303,7 @@ const createQueueRecord = async ({ question_id, question_text, appointment_time,
     appointment_time,
     window_id,
     status: normalizedStatus,
+    queue_type: normalizedQueueType,
     created_at
   };
 };
