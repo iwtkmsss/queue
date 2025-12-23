@@ -61,6 +61,9 @@ const getTimeKey = (value) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const isLiveQueueRecord = (item) =>
+  item?.queue_type === 'live' || String(item?.status || '').toLowerCase() === 'live_queue';
+
 const timeToMinutes = (timeStr) => {
   if (typeof timeStr !== 'string') return null;
   const match = /^(\d{2}):(\d{2})$/.exec(timeStr.trim());
@@ -229,9 +232,10 @@ const StaffTimeline = ({ employees = [] }) => {
     return map;
   }, [days, scheduleByWeek]);
 
-  const { queueByDate, queueMapByDate } = useMemo(() => {
+  const { queueByDate, queueMapByDate, liveTimesByDate } = useMemo(() => {
     const byDate = new Map();
     const mapByDate = new Map();
+    const liveByDate = new Map();
     queue.forEach((q) => {
       const dateKey = typeof q.appointment_time === 'string' ? q.appointment_time.slice(0, 10) : '';
       if (!dateKey) return;
@@ -249,8 +253,17 @@ const StaffTimeline = ({ employees = [] }) => {
         mapByDate.set(dateKey, dayMap);
       }
       dayMap.set(`${win}-${timeKey}`, q);
+
+      if (isLiveQueueRecord(q)) {
+        let liveSet = liveByDate.get(dateKey);
+        if (!liveSet) {
+          liveSet = new Set();
+          liveByDate.set(dateKey, liveSet);
+        }
+        liveSet.add(timeKey);
+      }
     });
-    return { queueByDate: byDate, queueMapByDate: mapByDate };
+    return { queueByDate: byDate, queueMapByDate: mapByDate, liveTimesByDate: liveByDate };
   }, [queue]);
 
   const getSlotsForDay = (dayQueue, dayScheduleByEmployee, lunchRange) => {
@@ -303,7 +316,7 @@ const StaffTimeline = ({ employees = [] }) => {
     return map;
   }, [days, queueByDate, scheduleByDate, serviceMinutes, windows, employeesByWindow, lunchMinutes]);
 
-  const renderCell = (win, timeStr, dayScheduleByEmployee, dayQueueMap) => {
+  const renderCell = (win, timeStr, dayScheduleByEmployee, dayQueueMap, dayLiveTimes) => {
     const emp = employeesByWindow.get(win);
     const sched = emp ? dayScheduleByEmployee.get(emp.id) : null;
     const withinSchedule = (() => {
@@ -318,11 +331,13 @@ const StaffTimeline = ({ employees = [] }) => {
     const lunchBreak = isLunchTime(timeStr, lunchMinutes);
 
     const booking = dayQueueMap.get(`${win}-${timeStr}`);
+    const isLiveRow = dayLiveTimes.has(timeStr);
 
     if (booking) {
+      const isLive = isLiveQueueRecord(booking);
       return (
         <div className="slot booked">
-          <div className="slot-title">Запис</div>
+          <div className="slot-title">{isLive ? '????? (???? ?????)' : '?????'}</div>
           <div className="slot-meta">
             {booking.ticket_number ? `Талон ${booking.ticket_number}` : 'Без талону'}
           </div>
@@ -333,7 +348,7 @@ const StaffTimeline = ({ employees = [] }) => {
       );
     }
 
-    if (withinSchedule && !lunchBreak) {
+    if (withinSchedule && !lunchBreak && !isLiveRow) {
       return (
         <div className="slot free">
           <div className="slot-title">Вільна</div>
@@ -400,6 +415,7 @@ const StaffTimeline = ({ employees = [] }) => {
           const isCollapsed = Boolean(collapsedDays[day]);
           const daySchedule = scheduleByDate.get(day) || new Map();
           const dayQueueMap = queueMapByDate.get(day) || new Map();
+          const dayLiveTimes = liveTimesByDate.get(day) || new Set();
           const daySlots = slotsByDate.get(day) || [];
           const panelId = `st-day-${day}`;
 
@@ -451,7 +467,7 @@ const StaffTimeline = ({ employees = [] }) => {
                             <td className="time-col">{time}</td>
                             {windows.map((w) => (
                               <td key={`${w}-${time}`} className="window-cell">
-                                {renderCell(w, time, daySchedule, dayQueueMap)}
+                                {renderCell(w, time, daySchedule, dayQueueMap, dayLiveTimes)}
                               </td>
                             ))}
                           </tr>
