@@ -337,7 +337,7 @@ const StaffTimeline = ({ employees = [] }) => {
       const isLive = isLiveQueueRecord(booking);
       return (
         <div className="slot booked">
-          <div className="slot-title">{isLive ? '????? (???? ?????)' : '?????'}</div>
+          <div className="slot-title">{isLive ? 'Запис (жива черга)' : 'Запис'}</div>
           <div className="slot-meta">
             {booking.ticket_number ? `Талон ${booking.ticket_number}` : 'Без талону'}
           </div>
