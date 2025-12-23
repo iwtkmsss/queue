@@ -5,24 +5,73 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 const pad = (n) => String(n).padStart(2, '0');
 const minutesToTime = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+const formatDateISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parseLocalDate = (dateStr) => new Date(`${dateStr}T00:00:00`);
 
 const dayLabel = (dateStr) => {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return d.toLocaleDateString('uk-UA', { weekday: 'short' }).toUpperCase();
 };
 
 const dateLabel = (dateStr) => {
-  const d = new Date(dateStr);
+  const d = parseLocalDate(dateStr);
   return d.toLocaleDateString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
+const getWeekStart = (dateStr) => {
+  const d = parseLocalDate(dateStr);
+  if (isNaN(d.getTime())) return null;
+  const day = d.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + diffToMonday);
+  return formatDateISO(monday);
+};
+
+const getIsoWeekday = (dateStr) => {
+  const d = parseLocalDate(dateStr);
+  if (isNaN(d.getTime())) return 1;
+  const jsDay = d.getDay(); // 0..6
+  return jsDay === 0 ? 7 : jsDay;
+};
+
+const getDateRange = (from, to) => {
+  if (!from || !to) return [];
+  const start = parseLocalDate(from);
+  const end = parseLocalDate(to);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return [];
+  if (start > end) return [];
+  const days = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    const day = cur.getDay();
+    if (day !== 0 && day !== 6) {
+      days.push(formatDateISO(cur));
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+};
+
+const getTimeKey = (value) => {
+  if (!value) return '';
+  if (typeof value === 'string' && value.length >= 16) return value.slice(11, 16);
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const StaffTimeline = ({ employees = [] }) => {
-  const today = new Date().toISOString().split('T')[0];
-  const [date, setDate] = useState(today);
+  const today = formatDateISO(new Date());
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
   const [queue, setQueue] = useState([]);
   const [weekSchedules, setWeekSchedules] = useState([]);
   const [serviceMinutes, setServiceMinutes] = useState(20);
   const [loading, setLoading] = useState(false);
+  const [collapsedDays, setCollapsedDays] = useState({});
+
+  const days = useMemo(() => getDateRange(fromDate, toDate), [fromDate, toDate]);
 
   // settings
   useEffect(() => {
@@ -38,20 +87,18 @@ const StaffTimeline = ({ employees = [] }) => {
     loadSettings();
   }, []);
 
-  // schedules for week of selected date
+  // schedules for weeks within selected range
   useEffect(() => {
     const fetchSchedules = async () => {
       try {
-        const d = new Date(date);
-        const day = d.getDay();
-        const diffToMonday = day === 0 ? -6 : 1 - day;
-        const monday = new Date(d);
-        monday.setDate(d.getDate() + diffToMonday);
-        const weekStart = monday.toISOString().split('T')[0];
-
+        if (days.length === 0) {
+          setWeekSchedules([]);
+          return;
+        }
+        const weekStarts = Array.from(new Set(days.map(getWeekStart).filter(Boolean))).sort();
         const params = new URLSearchParams({
-          from: weekStart,
-          to: weekStart,
+          from: weekStarts[0],
+          to: weekStarts[weekStarts.length - 1],
           status: 'active',
         });
         const res = await fetch(`${API_URL}/schedules?${params.toString()}`);
@@ -63,17 +110,18 @@ const StaffTimeline = ({ employees = [] }) => {
       }
     };
     fetchSchedules();
-  }, [date]);
+  }, [days]);
 
-  // queue for the chosen date
+  // queue for the chosen range
   useEffect(() => {
     const fetchQueue = async () => {
+      if (!fromDate || !toDate) return;
       setLoading(true);
       try {
         const params = new URLSearchParams({
-          from: date,
-          to: date,
-          limit: 1000,
+          from: fromDate,
+          to: toDate,
+          limit: 5000,
           offset: 0,
           sort_field: 'appointment_time',
           sort_dir: 'asc',
@@ -89,7 +137,7 @@ const StaffTimeline = ({ employees = [] }) => {
       }
     };
     fetchQueue();
-  }, [date]);
+  }, [fromDate, toDate]);
 
   const windows = useMemo(() => {
     const uniq = new Set();
@@ -109,48 +157,76 @@ const StaffTimeline = ({ employees = [] }) => {
     return map;
   }, [employees]);
 
-  const scheduleByEmployee = useMemo(() => {
+  const scheduleByWeek = useMemo(() => {
     const map = new Map();
-    const day = (() => {
-      const d = new Date(date);
-      const jsDay = d.getDay(); // 0..6
-      return jsDay === 0 ? 7 : jsDay;
-    })();
     weekSchedules.forEach((row) => {
+      const weekStart = row.week_start || row.weekStart;
+      if (!weekStart) return;
       try {
         const parsed = JSON.parse(row.data || '{}');
-        const daySched = parsed[String(day)] || parsed[day];
-        if (daySched) {
-          map.set(Number(row.employee_id), daySched);
+        let weekMap = map.get(weekStart);
+        if (!weekMap) {
+          weekMap = new Map();
+          map.set(weekStart, weekMap);
         }
+        weekMap.set(Number(row.employee_id), parsed);
       } catch {
         // ignore malformed
       }
     });
     return map;
-  }, [weekSchedules, date]);
+  }, [weekSchedules]);
 
-  const queueMap = useMemo(() => {
+  const scheduleByDate = useMemo(() => {
     const map = new Map();
-    queue.forEach((q) => {
-      const win = Number(q.window_id);
-      if (!win) return;
-      const time = new Date(q.appointment_time);
-      const timeKey = `${pad(time.getHours())}:${pad(time.getMinutes())}`;
-      map.set(`${win}-${timeKey}`, q);
+    days.forEach((day) => {
+      const weekStart = getWeekStart(day);
+      const weekMap = weekStart ? scheduleByWeek.get(weekStart) : null;
+      const dayIndex = getIsoWeekday(day);
+      const dayMap = new Map();
+      if (weekMap) {
+        weekMap.forEach((weekSched, empId) => {
+          const daySched = weekSched[String(dayIndex)] || weekSched[dayIndex];
+          if (daySched) dayMap.set(empId, daySched);
+        });
+      }
+      map.set(day, dayMap);
     });
     return map;
+  }, [days, scheduleByWeek]);
+
+  const { queueByDate, queueMapByDate } = useMemo(() => {
+    const byDate = new Map();
+    const mapByDate = new Map();
+    queue.forEach((q) => {
+      const dateKey = typeof q.appointment_time === 'string' ? q.appointment_time.slice(0, 10) : '';
+      if (!dateKey) return;
+
+      const list = byDate.get(dateKey) || [];
+      list.push(q);
+      byDate.set(dateKey, list);
+
+      const win = Number(q.window_id);
+      const timeKey = getTimeKey(q.appointment_time);
+      if (!win || !timeKey) return;
+      let dayMap = mapByDate.get(dateKey);
+      if (!dayMap) {
+        dayMap = new Map();
+        mapByDate.set(dateKey, dayMap);
+      }
+      dayMap.set(`${win}-${timeKey}`, q);
+    });
+    return { queueByDate: byDate, queueMapByDate: mapByDate };
   }, [queue]);
 
-  const slots = useMemo(() => {
+  const getSlotsForDay = (dayQueue, dayScheduleByEmployee) => {
     const step = serviceMinutes > 0 ? serviceMinutes : 20;
     let min = Infinity;
     let max = -Infinity;
 
-    // derive bounds from schedules
     windows.forEach((w) => {
       const emp = employeesByWindow.get(w);
-      const sched = emp ? scheduleByEmployee.get(emp.id) : null;
+      const sched = emp ? dayScheduleByEmployee.get(emp.id) : null;
       if (sched?.start && sched?.end) {
         const [sh, sm] = sched.start.split(':').map(Number);
         const [eh, em] = sched.end.split(':').map(Number);
@@ -161,13 +237,15 @@ const StaffTimeline = ({ employees = [] }) => {
       }
     });
 
-    // fallback to queue times if no schedule
     if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      queue.forEach((q) => {
-        const t = new Date(q.appointment_time);
-        const m = t.getHours() * 60 + t.getMinutes();
-        min = Math.min(min, m);
-        max = Math.max(max, m + step);
+      dayQueue.forEach((q) => {
+        const timeKey = getTimeKey(q.appointment_time);
+        if (!timeKey) return;
+        const [h, m] = timeKey.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) return;
+        const minutes = h * 60 + m;
+        min = Math.min(min, minutes);
+        max = Math.max(max, minutes + step);
       });
     }
 
@@ -180,11 +258,21 @@ const StaffTimeline = ({ employees = [] }) => {
       result.push(minutesToTime(m));
     }
     return result;
-  }, [employeesByWindow, scheduleByEmployee, queue, serviceMinutes, windows]);
+  };
 
-  const renderCell = (win, timeStr) => {
+  const slotsByDate = useMemo(() => {
+    const map = new Map();
+    days.forEach((day) => {
+      const dayQueue = queueByDate.get(day) || [];
+      const daySchedule = scheduleByDate.get(day) || new Map();
+      map.set(day, getSlotsForDay(dayQueue, daySchedule));
+    });
+    return map;
+  }, [days, queueByDate, scheduleByDate, serviceMinutes, windows, employeesByWindow]);
+
+  const renderCell = (win, timeStr, dayScheduleByEmployee, dayQueueMap) => {
     const emp = employeesByWindow.get(win);
-    const sched = emp ? scheduleByEmployee.get(emp.id) : null;
+    const sched = emp ? dayScheduleByEmployee.get(emp.id) : null;
     const withinSchedule = (() => {
       if (!sched?.start || !sched?.end) return false;
       const m = (h, mm) => h * 60 + mm;
@@ -195,7 +283,7 @@ const StaffTimeline = ({ employees = [] }) => {
       return cur >= m(sh, sm) && cur < m(eh, em);
     })();
 
-    const booking = queueMap.get(`${win}-${timeStr}`);
+    const booking = dayQueueMap.get(`${win}-${timeStr}`);
 
     if (booking) {
       return (
@@ -223,6 +311,16 @@ const StaffTimeline = ({ employees = [] }) => {
     return <div className="slot empty">—</div>;
   };
 
+  useEffect(() => {
+    setCollapsedDays((prev) => {
+      const next = {};
+      days.forEach((d) => {
+        if (prev?.[d]) next[d] = true;
+      });
+      return next;
+    });
+  }, [days]);
+
   return (
     <div className="staff-timeline">
       <div className="st-top">
@@ -232,64 +330,107 @@ const StaffTimeline = ({ employees = [] }) => {
             Швидкий огляд: хто на зміні, де є записи, а де можна направити клієнта.
           </p>
         </div>
-        <div className="st-date">
+        <div className="st-date-range">
           <label>
-            Дата
+            З
             <input
               type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value || today)}
+              value={fromDate}
+              onChange={(e) => {
+                const next = e.target.value || today;
+                setFromDate(next);
+                if (toDate && next > toDate) setToDate(next);
+              }}
             />
           </label>
+          <label>
+            По
+            <input
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                const next = e.target.value || today;
+                setToDate(next);
+                if (fromDate && next < fromDate) setFromDate(next);
+              }}
+            />
+          </label>
+          {loading && <div className="st-loading">Завантаження...</div>}
         </div>
       </div>
 
-      <div className="st-sheet">
-        <div className="st-sheet-head">
-          <div className="st-day">{dayLabel(date)}</div>
-          <div className="st-date-label">{dateLabel(date)}</div>
-          {loading && <div className="st-loading">Оновлення...</div>}
-        </div>
+      {days.length === 0 ? (
+        <div className="st-empty-range">Немає днів у діапазоні.</div>
+      ) : (
+        days.map((day) => {
+          const isCollapsed = Boolean(collapsedDays[day]);
+          const daySchedule = scheduleByDate.get(day) || new Map();
+          const dayQueueMap = queueMapByDate.get(day) || new Map();
+          const daySlots = slotsByDate.get(day) || [];
+          const panelId = `st-day-${day}`;
 
-        <div className="st-table-wrapper">
-          <table className="st-table">
-            <thead>
-              <tr>
-                <th className="time-col">Час</th>
-                {windows.map((w) => {
-                  const emp = employeesByWindow.get(w);
-                  return (
-                    <th key={w} className="window-col">
-                      <div className="window-name">Вікно {w}</div>
-                      <div className="employee-name">{emp?.name || '—'}</div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {slots.length === 0 ? (
-                <tr>
-                  <td colSpan={1 + windows.length} className="empty-row">
-                    Немає даних на цю дату
-                  </td>
-                </tr>
-              ) : (
-                slots.map((time) => (
-                  <tr key={time}>
-                    <td className="time-col">{time}</td>
-                    {windows.map((w) => (
-                      <td key={`${w}-${time}`} className="window-cell">
-                        {renderCell(w, time)}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+          return (
+            <div className="st-sheet" key={day}>
+              <div className="st-sheet-head">
+                <div className="st-day">{dayLabel(day)}</div>
+                <div className="st-date-label">{dateLabel(day)}</div>
+                <div className="st-head-actions">
+                  <button
+                    type="button"
+                    className="st-toggle"
+                    onClick={() => setCollapsedDays((prev) => ({ ...prev, [day]: !prev?.[day] }))}
+                    aria-expanded={!isCollapsed}
+                    aria-controls={panelId}
+                  >
+                    {isCollapsed ? 'Розгорнути' : 'Згорнути'}
+                  </button>
+                </div>
+              </div>
+
+              {!isCollapsed && (
+                <div className="st-table-wrapper" id={panelId}>
+                  <table className="st-table">
+                    <thead>
+                      <tr>
+                        <th className="time-col">Час</th>
+                        {windows.map((w) => {
+                          const emp = employeesByWindow.get(w);
+                          return (
+                            <th key={w} className="window-col">
+                              <div className="window-name">Вікно {w}</div>
+                              <div className="employee-name">{emp?.name || '-'}</div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {daySlots.length === 0 ? (
+                        <tr>
+                          <td colSpan={1 + windows.length} className="empty-row">
+                            Немає даних за цей день.
+                          </td>
+                        </tr>
+                      ) : (
+                        daySlots.map((time) => (
+                          <tr key={time}>
+                            <td className="time-col">{time}</td>
+                            {windows.map((w) => (
+                              <td key={`${w}-${time}`} className="window-cell">
+                                {renderCell(w, time, daySchedule, dayQueueMap)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          );
+        })
+      )}
     </div>
   );
 };

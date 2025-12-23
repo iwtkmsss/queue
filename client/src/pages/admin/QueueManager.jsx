@@ -135,6 +135,28 @@ const tryParseArray = (v) => {
   return [];
 };
 
+const getPageItems = (current, total) => {
+  const items = [];
+  const safeTotal = Math.max(1, total || 1);
+  const safeCurrent = Math.min(Math.max(current || 1, 1), safeTotal);
+
+  if (safeTotal <= 7) {
+    for (let i = 1; i <= safeTotal; i += 1) items.push(i);
+    return items;
+  }
+
+  const left = Math.max(2, safeCurrent - 2);
+  const right = Math.min(safeTotal - 1, safeCurrent + 2);
+
+  items.push(1);
+  if (left > 2) items.push('ellipsis-left');
+  for (let i = left; i <= right; i += 1) items.push(i);
+  if (right < safeTotal - 1) items.push('ellipsis-right');
+  items.push(safeTotal);
+
+  return items;
+};
+
 const QueueManager = () => {
   const { showError } = useError();
   const socket = useContext(WebSocketContext);
@@ -463,11 +485,19 @@ const QueueManager = () => {
       <h2>Черга клієнтів</h2>
 
       <div className="queue-pagination">
-        {Array.from({ length: totalPages }, (_, i) => (
-          <button key={i} className={i + 1 === page ? 'active' : ''} onClick={() => setPage(i + 1)}>
-            {i + 1}
-          </button>
-        ))}
+        {getPageItems(page, totalPages).map((item) =>
+          typeof item === 'number' ? (
+            <button
+              key={item}
+              className={item === page ? 'active' : ''}
+              onClick={() => setPage(item)}
+            >
+              {item}
+            </button>
+          ) : (
+            <span key={item} className="ellipsis">...</span>
+          )
+        )}
       </div>
 
       <table className="queue-table">

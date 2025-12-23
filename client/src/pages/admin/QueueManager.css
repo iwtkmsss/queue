@@ -134,6 +134,13 @@
   border-color: #6366f1;
 }
 
+.queue-pagination .ellipsis {
+  padding: 8px 6px;
+  color: #6b7280;
+  font-weight: 600;
+  user-select: none;
+}
+
 .queue-table {
   width: 100%;
   border-collapse: collapse;
