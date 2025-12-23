@@ -61,6 +61,23 @@ const getTimeKey = (value) => {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const timeToMinutes = (timeStr) => {
+  if (typeof timeStr !== 'string') return null;
+  const match = /^(\d{2}):(\d{2})$/.exec(timeStr.trim());
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (Number.isNaN(h) || Number.isNaN(m)) return null;
+  return h * 60 + m;
+};
+
+const isLunchTime = (timeStr, lunchRange) => {
+  if (!lunchRange) return false;
+  const minutes = timeToMinutes(timeStr);
+  if (minutes === null) return false;
+  return minutes >= lunchRange.start && minutes < lunchRange.end;
+};
+
 const StaffTimeline = ({ employees = [] }) => {
   const today = formatDateISO(new Date());
   const [fromDate, setFromDate] = useState(today);
@@ -68,10 +85,17 @@ const StaffTimeline = ({ employees = [] }) => {
   const [queue, setQueue] = useState([]);
   const [weekSchedules, setWeekSchedules] = useState([]);
   const [serviceMinutes, setServiceMinutes] = useState(20);
+  const [lunch, setLunch] = useState({ start: null, end: null });
   const [loading, setLoading] = useState(false);
   const [collapsedDays, setCollapsedDays] = useState({});
 
   const days = useMemo(() => getDateRange(fromDate, toDate), [fromDate, toDate]);
+  const lunchMinutes = useMemo(() => {
+    const start = timeToMinutes(lunch.start);
+    const end = timeToMinutes(lunch.end);
+    if (start === null || end === null || end <= start) return null;
+    return { start, end };
+  }, [lunch]);
 
   // settings
   useEffect(() => {
@@ -80,6 +104,16 @@ const StaffTimeline = ({ employees = [] }) => {
         const res = await fetch(`${API_URL}/settings/service_minutes`);
         const data = await res.json();
         if (data?.value) setServiceMinutes(Number(data.value));
+      } catch {
+        // ignore
+      }
+      try {
+        const res = await fetch(`${API_URL}/settings/lunch`);
+        const data = await res.json();
+        setLunch({
+          start: data?.start || null,
+          end: data?.end || null,
+        });
       } catch {
         // ignore
       }
@@ -219,10 +253,11 @@ const StaffTimeline = ({ employees = [] }) => {
     return { queueByDate: byDate, queueMapByDate: mapByDate };
   }, [queue]);
 
-  const getSlotsForDay = (dayQueue, dayScheduleByEmployee) => {
+  const getSlotsForDay = (dayQueue, dayScheduleByEmployee, lunchRange) => {
     const step = serviceMinutes > 0 ? serviceMinutes : 20;
-    let min = Infinity;
-    let max = -Infinity;
+    const times = new Set();
+    let minSchedule = Infinity;
+    let maxSchedule = -Infinity;
 
     windows.forEach((w) => {
       const emp = employeesByWindow.get(w);
@@ -232,32 +267,30 @@ const StaffTimeline = ({ employees = [] }) => {
         const [eh, em] = sched.end.split(':').map(Number);
         const sMin = sh * 60 + sm;
         const eMin = eh * 60 + em;
-        min = Math.min(min, sMin);
-        max = Math.max(max, eMin);
+        minSchedule = Math.min(minSchedule, sMin);
+        maxSchedule = Math.max(maxSchedule, eMin);
       }
     });
 
-    if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      dayQueue.forEach((q) => {
-        const timeKey = getTimeKey(q.appointment_time);
-        if (!timeKey) return;
-        const [h, m] = timeKey.split(':').map(Number);
-        if (Number.isNaN(h) || Number.isNaN(m)) return;
-        const minutes = h * 60 + m;
-        min = Math.min(min, minutes);
-        max = Math.max(max, minutes + step);
-      });
+    if (Number.isFinite(minSchedule) && Number.isFinite(maxSchedule)) {
+      for (let m = minSchedule; m < maxSchedule; m += step) {
+        times.add(minutesToTime(m));
+      }
     }
 
-    if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      return [];
-    }
+    const bookingTimes = new Set();
+    dayQueue.forEach((q) => {
+      const timeKey = getTimeKey(q.appointment_time);
+      if (!timeKey) return;
+      bookingTimes.add(timeKey);
+      times.add(timeKey);
+    });
 
-    const result = [];
-    for (let m = min; m < max; m += step) {
-      result.push(minutesToTime(m));
-    }
-    return result;
+    if (times.size === 0) return [];
+
+    return Array.from(times)
+      .sort((a, b) => (timeToMinutes(a) || 0) - (timeToMinutes(b) || 0))
+      .filter((timeStr) => !isLunchTime(timeStr, lunchRange) || bookingTimes.has(timeStr));
   };
 
   const slotsByDate = useMemo(() => {
@@ -265,10 +298,10 @@ const StaffTimeline = ({ employees = [] }) => {
     days.forEach((day) => {
       const dayQueue = queueByDate.get(day) || [];
       const daySchedule = scheduleByDate.get(day) || new Map();
-      map.set(day, getSlotsForDay(dayQueue, daySchedule));
+      map.set(day, getSlotsForDay(dayQueue, daySchedule, lunchMinutes));
     });
     return map;
-  }, [days, queueByDate, scheduleByDate, serviceMinutes, windows, employeesByWindow]);
+  }, [days, queueByDate, scheduleByDate, serviceMinutes, windows, employeesByWindow, lunchMinutes]);
 
   const renderCell = (win, timeStr, dayScheduleByEmployee, dayQueueMap) => {
     const emp = employeesByWindow.get(win);
@@ -282,6 +315,7 @@ const StaffTimeline = ({ employees = [] }) => {
       const [eh, em] = sched.end.split(':').map(Number);
       return cur >= m(sh, sm) && cur < m(eh, em);
     })();
+    const lunchBreak = isLunchTime(timeStr, lunchMinutes);
 
     const booking = dayQueueMap.get(`${win}-${timeStr}`);
 
@@ -299,7 +333,7 @@ const StaffTimeline = ({ employees = [] }) => {
       );
     }
 
-    if (withinSchedule) {
+    if (withinSchedule && !lunchBreak) {
       return (
         <div className="slot free">
           <div className="slot-title">Вільна</div>
