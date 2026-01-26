@@ -619,7 +619,7 @@ const DispatcherQueue = () => {
                   ))}
                 </select>
               </label>
-              <label>Особовий рахунок
+              <label>Абонентський номер споживача
                 <input
                   type="text"
                   value={form.personal_account || ''}

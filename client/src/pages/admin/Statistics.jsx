@@ -45,9 +45,10 @@ const EXPORT_FIELDS = [
   { key: 'appointment_time', label: 'Час запису' },
   { key: 'start_time', label: 'Початок обслуговування' },
   { key: 'end_time', label: 'Завершення обслуговування' },
+  { key: 'service_minutes', label: 'Конкретний час звернення (хв)' },
   { key: 'status', label: 'Статус' },
   { key: 'created_at', label: 'Створено' },
-  { key: 'personal_account', label: 'Особовий рахунок' },
+  { key: 'personal_account', label: 'Абонентський номер споживача' },
   { key: 'extra_actions', label: 'Додаткові дії' },
   { key: 'extra_other_text', label: 'Інша дія (текст)' },
   { key: 'application_yesno', label: 'Заява (так/ні)' },
@@ -162,7 +163,26 @@ const Statistics = () => {
     fetchStats();
   }, [fromDate, toDate, windowId, questionId, groupBy, status, queueType]);
 
+  const toExportDate = (value) => {
+    if (!value) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    const normalized = str.includes('T') ? str : str.replace(' ', 'T');
+    const parsed = new Date(normalized);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const getServiceMinutes = (row) => {
+    const start = toExportDate(row?.start_time);
+    const end = toExportDate(row?.end_time);
+    if (!start || !end) return '';
+    const diffMs = end.getTime() - start.getTime();
+    if (!Number.isFinite(diffMs) || diffMs < 0) return '';
+    return Math.round((diffMs / 60000) * 10) / 10;
+  };
+
   const formatValueForExport = (key, val, row) => {
+    if (key === 'service_minutes') return getServiceMinutes(row);
     if (key === 'status') return formatStatusLabel(val, row?.queue_type);
     if (key === 'queue_type') return QUEUE_TYPE_LABEL[val] || val || '';
     if (key === 'service_zone') return (val === 0 || val === '0' || val === false) ? 'Не наша' : 'Наша';

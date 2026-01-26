@@ -183,7 +183,7 @@ const ShowQueue = () => {
   };
 
   const showCallNotification = (queueNumber, windowNumber) => {
-    const text = `Запрошуємо клієнта номер ${queueNumber} до вікна номер ${windowNumber}`;
+    const text = `Запрошуємо споживача номер ${queueNumber} до вікна номер ${windowNumber}`;
     setCallMessage(text);
     setVisible(true);
     playCallAudio(queueNumber, windowNumber);
@@ -270,7 +270,7 @@ const ShowQueue = () => {
         )}
       {alarmActive &&
         createPortal(
-          <div className="showq-alarm-banner">🔴 УВАГА! Активна тривога!</div>,
+          <div className="showq-alarm-banner">🔴 УВАГА! Повітряна тривога!</div>,
           document.getElementById('overlay-root')
         )
       }

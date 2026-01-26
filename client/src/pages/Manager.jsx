@@ -239,7 +239,7 @@ const Manager = () => {
     const requireAccount = m.service_zone !== false;
 
     if (requireAccount && !m.personal_account?.trim()) {
-      errs.push('Вкажіть особовий рахунок.');
+      errs.push('Вкажіть абонентський номер споживача.');
     }
     if (isArray(m.extra_actions) &&
         m.extra_actions.includes('EX_OTHER_FREE_TEXT') &&
@@ -918,12 +918,12 @@ const Manager = () => {
             <div className="meta-form">
               {meta.service_zone !== false && (
                 <div className="field field-account">
-                  <label>Особовий рахунок<span className="req">*</span></label>
+                  <label>Абонентський номер споживача<span className="req">*</span></label>
                   <input
                     type="text"
                     value={meta.personal_account}
                     onChange={e => onMetaChange({ personal_account: e.target.value })}
-                    placeholder="Введіть особовий рахунок"
+                    placeholder="Введіть абонентський номер споживача"
                   />
                 </div>
               )}

@@ -128,7 +128,7 @@ exports.finishAppointment = (req, res) => {
     const application_types = application_yesno ? toArray(rowOrBody.application_types) : [];
 
     if (requiresAccount && !personal_account) {
-      errors.push('Вкажіть особовий рахунок.');
+      errors.push('Вкажіть абонентський номер споживача.');
     }
     if (extra_actions.includes('EX_OTHER_FREE_TEXT') && !extra_other_text) {
       errors.push('Опишіть "Інше" у текстовому полі.');

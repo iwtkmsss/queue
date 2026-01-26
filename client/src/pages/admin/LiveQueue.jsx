@@ -622,7 +622,7 @@ const LiveQueue = () => {
                   ))}
                 </select>
               </label>
-              <label>Особовий рахунок
+              <label>Абонентський номер споживача
                 <input
                   type="text"
                   value={editForm.personal_account || ''}
