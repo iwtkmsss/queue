@@ -372,7 +372,7 @@ exports.exportQueueRaw = (req, res) => {
 
   if (!from || !to) {
     if (wantsJson) {
-      from = from || '1970-01-01';
+      from = from || '2026-01-01';
       to = to || '2999-12-31';
     } else {
       return res.status(400).json({ error: 'Необхідно вказати параметри дат from і to'  });
