@@ -103,6 +103,7 @@ async function ensureColumns(db) {
     { name: 'ticket_number', ddl: 'ticket_number INTEGER' },
     { name: 'queue_type', ddl: "queue_type TEXT DEFAULT 'regular'" },
     { name: 'service_zone', ddl: 'service_zone INTEGER DEFAULT 1' },
+    { name: 'downloaded', ddl: 'downloaded INTEGER DEFAULT 0' },
   ];
 
   const queueColumns = await getColumns('queue');
@@ -118,6 +119,7 @@ async function ensureColumns(db) {
   try {
     await runSql("UPDATE queue SET queue_type = 'live', status = 'waiting' WHERE status = 'live_queue'");
     await runSql("UPDATE queue SET queue_type = 'regular' WHERE queue_type IS NULL OR queue_type = ''");
+    await runSql("UPDATE queue SET downloaded = 0 WHERE downloaded IS NULL");
   } catch (err) {
     console.warn('Queue type migration failed:', err.message || err);
   }

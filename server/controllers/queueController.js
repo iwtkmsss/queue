@@ -411,6 +411,9 @@ exports.exportQueueRaw = (req, res) => {
     conditions.push('q.status = ?');
     params.push(normalizedStatus);
   }
+  if (isRawEndpoint) {
+    conditions.push('q.downloaded = 0');
+  }
 
   const where = `WHERE ${conditions.join(' AND ')}`;
 
@@ -492,6 +495,35 @@ exports.getQueueRawJson = (req, res) => {
   if (!req.query.to) req.query.to = '2999-12-31';
   req.query.format = 'json';
   return exports.exportQueueRaw(req, res);
+};
+
+exports.markQueueRawDownloaded = (req, res) => {
+  const db = req.app.get('db');
+  const body = req.body || {};
+
+  let ids = [];
+  if (Array.isArray(body.ids)) {
+    ids = body.ids;
+  } else if (Array.isArray(body.rows)) {
+    ids = body.rows.map((r) => r?.id).filter((v) => v !== undefined && v !== null);
+  } else if (Array.isArray(body)) {
+    ids = body.map((r) => (typeof r === 'object' ? r?.id : r)).filter((v) => v !== undefined && v !== null);
+  }
+
+  ids = [...new Set(ids.map((v) => Number(v)).filter((v) => Number.isFinite(v)))];
+  if (ids.length === 0) {
+    return res.status(400).json({ error: 'Потрібні ids або rows з id для відмітки' });
+  }
+
+  const placeholders = ids.map(() => '?').join(',');
+  const sql = `UPDATE queue SET downloaded = 1 WHERE id IN (${placeholders})`;
+  db.run(sql, ids, function (err) {
+    if (err) {
+      console.error('Помилка оновлення downloaded:', err);
+      return res.status(500).json({ error: 'Помилка сервера' });
+    }
+    res.json({ success: true, updated: this.changes || 0 });
+  });
 };
 
 exports.updateQueueFull = (req, res) => {

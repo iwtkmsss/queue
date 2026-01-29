@@ -9,6 +9,7 @@ router.patch('/reassign', queueController.reassignQueueWindow);
 router.patch('/move-window', queueController.moveQueueToAnotherWindow);
 router.get('/stats', queueController.getQueueStats);
 router.get('/raw', queueController.getQueueRawJson);
+router.post('/raw', queueController.markQueueRawDownloaded);
 router.get('/export', queueController.exportQueueRaw);
 router.patch('/:id/full', queueController.updateQueueFull);
 router.patch('/:id', queueController.updateQueueWindow);
