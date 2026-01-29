@@ -412,6 +412,7 @@ exports.exportQueueRaw = (req, res) => {
     params.push(normalizedStatus);
   }
   if (isRawEndpoint) {
+    conditions.push("q.status NOT IN ('waiting', 'in_progress')");
     conditions.push('q.downloaded = 0');
   }
 
