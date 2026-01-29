@@ -365,10 +365,18 @@ exports.getQueueStats = (req, res) => {
 
 exports.exportQueueRaw = (req, res) => {
   const db = req.app.get('db');
-  const { from, to, window_id, question_id, status, format, queue_type } = req.query;
+  let { from, to, window_id, question_id, status, format, queue_type } = req.query;
+  const isJson = String(format || '').toLowerCase() === 'json';
+  const isRawEndpoint = req.path === '/raw' || String(req.originalUrl || '').includes('/queue/raw');
+  const wantsJson = isJson || isRawEndpoint;
 
   if (!from || !to) {
-    return res.status(400).json({ error: 'Необхідно вказати параметри дат from і to' });
+    if (wantsJson) {
+      from = from || '1970-01-01';
+      to = to || '2999-12-31';
+    } else {
+      return res.status(400).json({ error: 'Необхідно вказати параметри дат from і to'  });
+    }
   }
 
   let normalizedStatus = status;
@@ -436,9 +444,7 @@ exports.exportQueueRaw = (req, res) => {
       console.error('Помилка SQL (export):', err);
       return res.status(500).json({ error: 'Помилка сервера (export)' });
     }
-
-    const isJson = String(format || '').toLowerCase() === 'json';
-    if (isJson) {
+    if (wantsJson) {
       return res.json({ rows });
     }
 
@@ -479,6 +485,13 @@ exports.exportQueueRaw = (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=queue-export-${from}-to-${to}.csv`);
     res.send(csv);
   });
+};
+
+exports.getQueueRawJson = (req, res) => {
+  if (!req.query.from) req.query.from = '1970-01-01';
+  if (!req.query.to) req.query.to = '2999-12-31';
+  req.query.format = 'json';
+  return exports.exportQueueRaw(req, res);
 };
 
 exports.updateQueueFull = (req, res) => {
