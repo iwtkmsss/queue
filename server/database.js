@@ -99,6 +99,7 @@ async function ensureColumns(db) {
     { name: 'extra_other_text', ddl: 'extra_other_text TEXT' },
     { name: 'extra_actions', ddl: 'extra_actions TEXT' },
     { name: 'personal_account', ddl: 'personal_account TEXT' },
+    { name: 'meta_tabs', ddl: 'meta_tabs TEXT' },
     { name: 'question_text', ddl: 'question_text TEXT' },
     { name: 'ticket_number', ddl: 'ticket_number INTEGER' },
     { name: 'queue_type', ddl: "queue_type TEXT DEFAULT 'regular'" },

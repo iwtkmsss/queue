@@ -18,7 +18,6 @@ exports.getAllQueue = (req, res) => {
     normalizedStatus = null;
     normalizedQueueType = 'live';
   }
-
   if (from) {
     conditions.push('DATE(q.appointment_time) >= ?');
     params.push(from);
