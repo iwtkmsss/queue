@@ -107,7 +107,7 @@
   align-self: flex-start;
   box-shadow: 0 6px 16px rgba(251, 191, 36, 0.25);
   position: relative;
-  z-index: 30000;
+  z-index: 900;
 }
 
 .current-client-card {
