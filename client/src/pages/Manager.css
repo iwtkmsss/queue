@@ -427,12 +427,13 @@
   margin-top: 4px;
 }
 
-/* ========== META TABS (up to 5) ========== */
+/* ========== META TABS (up to 50) ========== */
 
 .meta-tabs {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
+  justify-items: start;
   gap: 8px;
   margin-bottom: 12px;
 }

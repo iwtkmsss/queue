@@ -1,4 +1,5 @@
 const moment = require('moment-timezone');
+const MAX_META_TABS = 50;
 const { broadcast } = require('../ws');
 
 // Отримання записів на сьогодні
@@ -141,6 +142,8 @@ exports.finishAppointment = async (req, res) => {
       application_types: applicationYesNo ? toArray(tab.application_types) : [],
       manager_comment: tab.manager_comment || '',
       service_zone: normalizeServiceZone(tab.service_zone),
+      tab_start_time: tab.tab_start_time || null,
+      tab_end_time: tab.tab_end_time || null,
       tab_status: normalizeTabStatus(tab.tab_status),
       tab_slot: tabSlot,
     };
@@ -200,10 +203,10 @@ exports.finishAppointment = async (req, res) => {
 
   const tabs = (() => {
     if (payload) {
-      if (rawTabs && rawTabs.length) return rawTabs.map(normalizeTab).slice(0, 5);
+      if (rawTabs && rawTabs.length) return rawTabs.map(normalizeTab).slice(0, MAX_META_TABS);
       return [normalizeTab(payload)];
     }
-    if (rowTabs && rowTabs.length) return rowTabs.map(normalizeTab).slice(0, 5);
+    if (rowTabs && rowTabs.length) return rowTabs.map(normalizeTab).slice(0, MAX_META_TABS);
     return [normalizeTab(row)];
   })();
 
@@ -220,6 +223,8 @@ exports.finishAppointment = async (req, res) => {
 
   const tabToFinish = tabs[finishTabIndex];
   tabToFinish.tab_status = 'completed';
+  tabToFinish.tab_start_time = tabToFinish.tab_start_time || now;
+  tabToFinish.tab_end_time = now;
   const tabErrors = validateTab(tabToFinish);
   if (tabErrors.length) {
     const prefix = tabs.length > 1 ? `Вкладка ${finishTabIndex + 1}: ` : '';
@@ -392,6 +397,8 @@ exports.updateMetaAppointment = (req, res) => {
       application_types: applicationYesNo ? toArray(tab.application_types) : [],
       manager_comment: tab.manager_comment || '',
       service_zone: normalizeServiceZone(tab.service_zone),
+      tab_start_time: tab.tab_start_time || null,
+      tab_end_time: tab.tab_end_time || null,
       tab_status: normalizeTabStatus(tab.tab_status),
       tab_slot: tabSlot,
     };
@@ -413,7 +420,7 @@ exports.updateMetaAppointment = (req, res) => {
 
   const rawTabs = parseTabs(body.meta_tabs);
   const normalizedTabs = Array.isArray(rawTabs) && rawTabs.length
-    ? rawTabs.map(normalizeTab).slice(0, 5)
+    ? rawTabs.map(normalizeTab).slice(0, MAX_META_TABS)
     : [normalizeTab(body)];
 
   const primary = normalizedTabs[0] || normalizeTab(body);

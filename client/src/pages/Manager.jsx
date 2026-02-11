@@ -5,6 +5,10 @@ import moment from 'moment-timezone';
 import { WebSocketContext } from '../context/WebSocketProvider';
 import ConfirmDialog from '../components/ConfirmDialog';
 
+const API_URL = import.meta.env.VITE_API_URL;
+const MAX_META_TABS = 5;
+
+
 // ——— Compact multi-select dropdown (no libs)
 const MultiSelectDropdown = ({
   label,
@@ -117,8 +121,8 @@ const MultiSelectDropdown = ({
 };
 
 
-const API_URL = import.meta.env.VITE_API_URL;
-const MAX_META_TABS = 5;
+
+
 const createEmptyMeta = () => ({
   personal_account: '',
   extra_actions: [],
@@ -127,6 +131,8 @@ const createEmptyMeta = () => ({
   application_types: [],
   manager_comment: '',
   service_zone: true,
+  tab_start_time: null,
+  tab_end_time: null,
   tab_status: 'waiting',
 });
 const createMetaTab = ({ isNew = false, slot = 1 } = {}) => (
@@ -330,6 +336,8 @@ const Manager = () => {
         tab.service_zone === null || tab.service_zone === undefined
           ? true
           : !!tab.service_zone,
+      tab_start_time: tab.tab_start_time || null,
+      tab_end_time: tab.tab_end_time || null,
       tab_status:
         tabStatus === 'in_progress' || tabStatus === 'completed' || tabStatus === 'canceled'
           ? tabStatus
@@ -1254,9 +1262,12 @@ const Manager = () => {
       if (!ok) return;
     }
 
+    const startStamp = moment.tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
     setTabStatuses(prev => prev.map((s, idx) => (idx === tabIndex ? 'in_progress' : s)));
     const nextTabs = metaTabs.map((tab, idx) =>
-      idx === tabIndex ? { ...tab, tab_status: 'in_progress' } : tab
+      idx === tabIndex
+        ? { ...tab, tab_status: 'in_progress', tab_start_time: tab.tab_start_time || startStamp }
+        : tab
     );
     setMetaTabs(nextTabs);
     syncMetaTabs(nextTabs);
@@ -1319,8 +1330,16 @@ const Manager = () => {
     }
 
     try {
+      const finishStamp = moment.tz('Europe/Kyiv').format('YYYY-MM-DD HH:mm:ss');
       const nextTabsForFinish = metaTabs.map((item, idx) =>
-        idx === tabIndex ? { ...item, tab_status: 'completed' } : item
+        idx === tabIndex
+          ? {
+            ...item,
+            tab_status: 'completed',
+            tab_start_time: item.tab_start_time || finishStamp,
+            tab_end_time: finishStamp,
+          }
+          : item
       );
       const payload = buildMetaPayload(nextTabsForFinish);
       payload.finish_tab_index = tabIndex;
@@ -1666,7 +1685,7 @@ if (!employee) {
                   onClick={handleAddMetaTab}
                   disabled={metaTabs.length >= MAX_META_TABS}
                   aria-label="Додати вкладку"
-                  title={metaTabs.length >= MAX_META_TABS ? 'Максимум 5 вкладок' : 'Додати вкладку'}
+                  title={metaTabs.length >= MAX_META_TABS ? `Максимум ${MAX_META_TABS} вкладок` : 'Додати вкладку'}
                 >
                   +
                 </button>
